@@ -14,29 +14,52 @@ services:
       - N8N_PORT=5678
       - N8N_PROTOCOL=https
       - WEBHOOK_URL=https://${N8N_HOST}/
-      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
-      - N8N_RESTRICT_ENVIRONMENT_VARIABLES_ACCESS=false
-      - NODE_FUNCTION_ALLOW_BUILTIN=crypto,fs,path,fs
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_RESTRICT_ENVIRONMENT_VARIABLES_ACCESS=true
+      - NODE_FUNCTION_ALLOW_BUILTIN=crypto,fs,path
       - N8N_RUNNERS_ENABLED=false
     ports:
-      - "5678:5678"
+      - "127.0.0.1:5678:5678"
     volumes:
       - ./data:/home/node/.n8n
       - ./config.json:/config/config.json:ro
     networks:
+      - automation-internal
       - web-proxy
     depends_on:
       - gmail-relay
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    mem_limit: 512m
+    pids_limit: 100
+    read_only: false
+    tmpfs:
+      - /tmp
 
   gmail-relay:
     build: ./gmail-relay
     container_name: gmail-relay
     restart: always
     volumes:
-      - ./gmail-relay/config:/config
+      - ./gmail-relay/config:/config:ro
     networks:
-      - web-proxy
+      - automation-internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    mem_limit: 128m
+    pids_limit: 30
 
 networks:
+  automation-internal:
+    driver: bridge
+    internal: true
   web-proxy:
     external: true

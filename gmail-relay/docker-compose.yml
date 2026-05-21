@@ -2,8 +2,14 @@ services:
   gmail-relay:
     build: .
     container_name: gmail-relay
-    ports:
-      - "2525:2525"
     volumes:
-      - ./config:/config
+      - ./config:/config:ro
     restart: always
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    mem_limit: 128m
+    pids_limit: 30
