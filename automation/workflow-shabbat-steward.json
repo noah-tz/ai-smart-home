@@ -1,8 +1,9 @@
 {
-  "name": "AI Shabbat & Holiday Steward",
+  "name": "AI Erev Shabbat Steward",
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Asia/Jerusalem"
+    "timezone": "Asia/Jerusalem",
+    "binaryMode": "separate"
   },
   "nodes": [
     {
@@ -10,8 +11,7 @@
         "rule": {
           "interval": [
             {
-              "triggerAtHour": 15,
-              "triggerAtMinute": 0
+              "triggerAtHour": 15
             }
           ]
         }
@@ -34,7 +34,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
+        224,
         0
       ]
     },
@@ -47,13 +47,19 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        440,
+        448,
         0
       ]
     },
     {
       "parameters": {
         "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
           "conditions": [
             {
               "id": "is-erev",
@@ -66,14 +72,15 @@
             }
           ],
           "combinator": "and"
-        }
+        },
+        "options": {}
       },
       "id": "if-erev",
       "name": "Is Erev Kodesh?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        660,
+        672,
         0
       ]
     },
@@ -87,33 +94,20 @@
       "typeVersion": 2,
       "position": [
         880,
-        -100
+        -96
       ]
     },
     {
       "parameters": {
-        "jsCode": "// Plan Erev Shabbat actions: shutdown devices + schedule AC for Friday night\nconst config = $('Load Config').first().json;\nconst shabbatData = $('Check Shabbat Entry').first().json;\nconst weatherData = $('Get Weather Forecast').first().json;\n\nconst candleLighting = shabbatData.candleLighting;\nconst sunsetTime = shabbatData.sunsetTime;\nconst isSummer = shabbatData.isSummerMonth;\nconst maxTemp = weatherData.maxTemp;\n\nconst devices = config.devices;\nconst schedule = [];\n\n// === FIXED ACTIONS: Always on Erev Shabbat ===\n\n// 1. Turn OFF Boiler 30 min before candle lighting\nconst clDate = new Date(candleLighting);\nconst boilerOff = new Date(clDate.getTime() - 30 * 60 * 1000);\nschedule.push({\n  time: boilerOff.toISOString(),\n  deviceId: devices.BOILER,\n  entity: 'Boiler',\n  action: 'OFF',\n  commands: [{ code: 'switch_1', value: false }]\n});\n\n// 2. Turn OFF Mini-Bar at candle lighting\nschedule.push({\n  time: candleLighting,\n  deviceId: devices.MINI_BAR,\n  entity: 'Mini-Bar',\n  action: 'OFF',\n  commands: [{ code: 'switch_1', value: false }]\n});\n\n// === CONDITIONAL: AC for Friday night dinner (summer + hot) ===\nif (isSummer && maxTemp >= config.settings.AC_TEMP_THRESHOLD) {\n  // Living room ACs: 1 hour after sunset for 2 hours\n  const sunsetDate = new Date(sunsetTime);\n  const acOn = new Date(sunsetDate.getTime() + 60 * 60 * 1000);\n  const acOff = new Date(acOn.getTime() + 2 * 60 * 60 * 1000);\n\n  // Turn ON living room ACs\n  schedule.push({\n    time: acOn.toISOString(),\n    deviceId: devices.AC_LIVING_1,\n    entity: 'AC Living 1',\n    action: 'ON',\n    commands: [{ code: 'switch', value: true }, { code: 'mode', value: 'cold' }, { code: 'temp_set', value: 24 }]\n  });\n  schedule.push({\n    time: acOn.toISOString(),\n    deviceId: devices.AC_LIVING_2,\n    entity: 'AC Living 2',\n    action: 'ON',\n    commands: [{ code: 'switch', value: true }, { code: 'mode', value: 'cold' }, { code: 'temp_set', value: 24 }]\n  });\n\n  // Turn OFF living room ACs after dinner\n  schedule.push({\n    time: acOff.toISOString(),\n    deviceId: devices.AC_LIVING_1,\n    entity: 'AC Living 1',\n    action: 'OFF',\n    commands: [{ code: 'switch', value: false }]\n  });\n  schedule.push({\n    time: acOff.toISOString(),\n    deviceId: devices.AC_LIVING_2,\n    entity: 'AC Living 2',\n    action: 'OFF',\n    commands: [{ code: 'switch', value: false }]\n  });\n\n  // Bedroom AC: after dinner until 11:00 next morning\n  schedule.push({\n    time: acOff.toISOString(),\n    deviceId: devices.AC_BEDROOM,\n    entity: 'AC Bedroom',\n    action: 'ON',\n    commands: [{ code: 'switch', value: true }, { code: 'mode', value: 'cold' }, { code: 'temp_set', value: 24 }]\n  });\n\n  // Kids AC: after dinner until 11:00 next morning\n  schedule.push({\n    time: acOff.toISOString(),\n    deviceId: devices.AC_KIDS,\n    entity: 'AC Kids',\n    action: 'ON',\n    commands: [{ code: 'switch', value: true }, { code: 'mode', value: 'cold' }, { code: 'temp_set', value: 24 }]\n  });\n}\n\n// Sort by time\nschedule.sort((a, b) => new Date(a.time) - new Date(b.time));\n\nreturn [{ json: { schedule, summary: `Erev Shabbat plan: ${schedule.length} actions scheduled` } }];\n"
+        "jsCode": "// AI Erev Shabbat/Chag Steward - Plans EVENING actions\n// Runs at 15:00 daily. Only acts if there's a Kodesh entry tonight.\n// Responsibilities:\n//   1. If transition Chol→Kodesh tonight: shutdown boiler + mini-bar\n//   2. Plan evening/night actions (AC for dinner, bedrooms, etc.)\n//   Does NOT handle: havdalah, daytime Shabbat actions\nconst config = $('Load Config').first().json;\nconst shabbatData = $('Check Shabbat Entry').first().json;\nconst weatherData = $('Get Weather Forecast').first().json;\n\nconst GEMINI_KEY = config.secrets.GEMINI_API_KEY;\nconst devices = config.devices;\n\nconst prompt = `You are the \"AI Erev Shabbat/Chag Steward.\" You plan EVENING actions for tonight.\nIt is now 15:00. You run every day at 15:00 and only act if there is a Kodesh entry (candle lighting) tonight.\n\nYOUR SCOPE (tonight only):\n- Plan actions from NOW (15:00) until tomorrow morning 11:00.\n- You do NOT plan daytime Shabbat actions (that's another agent's job).\n- You do NOT handle havdalah/transition to Chol (that's another agent's job).\n\nTRANSITION LOGIC:\n- isTransitionCholToKodesh: ${shabbatData.isTransitionCholToKodesh} \n  → If TRUE: Today is Chol transitioning to Kodesh tonight. You MUST turn OFF boiler (30 min before candles) and mini-bar (at candle lighting).\n  → If FALSE: Already Kodesh (multi-day chag). Do NOT turn off boiler/mini-bar (already off). Only plan evening comfort actions.\n\nAvailable smart entities:\n- Boiler (ID=\"${devices.BOILER}\" - code \"switch_1\") - OFF only if transition Chol→Kodesh\n- Mini-Bar (ID=\"${devices.MINI_BAR}\" - code \"switch_1\") - OFF only if transition Chol→Kodesh\n- Living Room ACs (IDs: \"${devices.AC_LIVING_1}\", \"${devices.AC_LIVING_2}\" - codes: \"switch\", \"mode\", \"temp_set\")\n- Bedroom AC (ID=\"${devices.AC_BEDROOM}\")\n- Kids Room AC (ID=\"${devices.AC_KIDS}\")\n- Shutters (Left=\"${devices.SHUTTER_LEFT}\", Right=\"${devices.SHUTTER_RIGHT}\" - code \"percent_control\", 0=closed, 100=open)\n\nContext:\n- Candle Lighting: ${shabbatData.candleLighting}\n- Sunset: ${shabbatData.sunsetTime}\n- Is Summer Month: ${shabbatData.isSummerMonth}\n- Month: ${shabbatData.month}\n- Max Temperature: ${weatherData.maxTemp}°C\n- Current Temperature: ${weatherData.currentTemp}°C\n- Forecast: ${JSON.stringify(weatherData.forecast.slice(0, 12))}\n\nRULES:\n1. If isTransitionCholToKodesh=true:\n   - Boiler OFF 30 min before candle lighting\n   - Mini-Bar OFF at candle lighting\n2. If isTransitionCholToKodesh=false: Skip boiler/mini-bar (already handled)\n3. Summer (months 5-10) + temp > 20°C:\n   - Living room ACs ON 1 hour after sunset for 2 hours (Friday night dinner)\n   - After dinner: Bedroom AC ON until 11:00 next day (always in summer)\n   - After dinner: Kids AC ON until 11:00 next day (only if temp > 20°C)\n4. Shutters: Close before sunset if hot day.\n\nOutput ONLY valid JSON:\n{\n  \"reasoning_summary\": \"Brief Hebrew summary\",\n  \"schedule\": [\n    {\n      \"time\": \"YYYY-MM-DDTHH:MM:SS+03:00\",\n      \"deviceId\": \"tuya_device_id\",\n      \"entity\": \"entity_name\",\n      \"action\": \"ON/OFF/SET\",\n      \"commands\": [{\"code\": \"command_code\", \"value\": \"value\"}],\n      \"explanation\": \"Why (Hebrew)\"\n    }\n  ]\n}`;\n\nconst payload = {\n  contents: [{ role: \"user\", parts: [{ text: prompt }] }],\n  generationConfig: {\n    responseMimeType: \"application/json\",\n    responseSchema: {\n      type: \"object\",\n      properties: {\n        reasoning_summary: { type: \"string\" },\n        schedule: {\n          type: \"array\",\n          items: {\n            type: \"object\",\n            properties: {\n              time: { type: \"string\" },\n              deviceId: { type: \"string\" },\n              entity: { type: \"string\" },\n              action: { type: \"string\" },\n              commands: { type: \"array\", items: { type: \"object\", properties: { code: { type: \"string\" }, value: {} } } },\n              explanation: { type: \"string\" }\n            },\n            required: [\"time\", \"deviceId\", \"entity\", \"action\", \"commands\", \"explanation\"]\n          }\n        }\n      },\n      required: [\"reasoning_summary\", \"schedule\"]\n    }\n  }\n};\n\nconst url = \"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\" + GEMINI_KEY;\n\ntry {\n  const response = await this.helpers.httpRequest({\n    method: 'POST', url, body: payload, json: true,\n    headers: { 'Content-Type': 'application/json' }\n  });\n  const text = response.candidates[0].content.parts[0].text;\n  const result = JSON.parse(text.replace(/```json|```/g, '').trim());\n  return [{ json: result }];\n} catch (e) {\n  return [{ json: { reasoning_summary: \"שגיאה: \" + e.message, schedule: [] } }];\n}\n"
       },
-      "id": "plan-erev",
-      "name": "Plan Erev Shabbat",
+      "id": "ai-steward",
+      "name": "AI Shabbat Steward",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1100,
-        -100
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Execute scheduled Tuya commands at the right times\n// This node receives a schedule array and executes commands that are due NOW\nconst crypto = require('crypto');\nconst config = $('Load Config').first().json;\nconst scheduleData = $input.first().json;\n\nconst TUYA_ACCESS_ID = config.secrets.TUYA_ACCESS_ID;\nconst TUYA_ACCESS_SECRET = config.secrets.TUYA_ACCESS_SECRET;\nconst API_URL = 'https://openapi.tuyaeu.com';\n\n// Get Tuya token\nasync function getTuyaToken() {\n  const timestamp = Date.now().toString();\n  const path = '/v1.0/token?grant_type=1';\n  const contentHash = crypto.createHash('sha256').update('').digest('hex');\n  const stringToSign = 'GET\\n' + contentHash + '\\n\\n' + path;\n  const str = TUYA_ACCESS_ID + timestamp + stringToSign;\n  const sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET).update(str).digest('hex').toUpperCase();\n\n  const response = await this.helpers.httpRequest({\n    method: 'GET',\n    url: API_URL + path,\n    headers: { 't': timestamp, 'sign': sign, 'client_id': TUYA_ACCESS_ID, 'sign_method': 'HMAC-SHA256' },\n    json: true\n  });\n\n  return response.result.access_token;\n}\n\n// Send command to device\nasync function sendCommand(token, deviceId, commands) {\n  const timestamp = Date.now().toString();\n  const path = '/v1.0/devices/' + deviceId + '/commands';\n  const body = JSON.stringify({ commands });\n\n  const contentHash = crypto.createHash('sha256').update(body).digest('hex');\n  const stringToSign = 'POST\\n' + contentHash + '\\n\\n' + path;\n  const str = TUYA_ACCESS_ID + token + timestamp + stringToSign;\n  const sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET).update(str).digest('hex').toUpperCase();\n\n  const response = await this.helpers.httpRequest({\n    method: 'POST',\n    url: API_URL + path,\n    headers: {\n      't': timestamp, 'sign': sign, 'client_id': TUYA_ACCESS_ID,\n      'sign_method': 'HMAC-SHA256', 'access_token': token,\n      'Content-Type': 'application/json'\n    },\n    body: body,\n    json: true\n  });\n\n  return response;\n}\n\n// Filter actions that should execute NOW (within 2 minute window)\nconst now = Date.now();\nconst WINDOW_MS = 2 * 60 * 1000; // 2 minutes\n\nconst dueActions = scheduleData.schedule.filter(action => {\n  const actionTime = new Date(action.time).getTime();\n  return Math.abs(actionTime - now) <= WINDOW_MS;\n});\n\nif (dueActions.length === 0) {\n  return [{ json: { executed: 0, message: 'No actions due at this time' } }];\n}\n\n// Execute due actions\nconst token = await getTuyaToken.call(this);\nconst results = [];\n\nfor (const action of dueActions) {\n  try {\n    const result = await sendCommand.call(this, token, action.deviceId, action.commands);\n    results.push({\n      entity: action.entity,\n      action: action.action,\n      success: result.success,\n      time: action.time\n    });\n  } catch (e) {\n    results.push({\n      entity: action.entity,\n      action: action.action,\n      success: false,\n      error: e.message,\n      time: action.time\n    });\n  }\n}\n\nreturn [{ json: { executed: results.length, results } }];\n"
-      },
-      "id": "execute-erev",
-      "name": "Execute Erev Actions",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1320,
-        -100
+        1104,
+        -96
       ]
     },
     {
@@ -126,8 +120,100 @@
       "typeVersion": 2,
       "position": [
         880,
-        100
+        112
       ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split the AI schedule into individual items for sequential execution\n// Each item will go through a Wait -> Execute loop\nconst schedule = $input.first().json.schedule || [];\n\n// Sort by time\nconst sorted = schedule.sort((a, b) => new Date(a.time) - new Date(b.time));\n\n// Return each action as a separate item\nreturn sorted.map(action => ({ json: action }));\n"
+      },
+      "id": "split-schedule",
+      "name": "Split Schedule",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate how many seconds to wait until this action's scheduled time\nconst action = $input.first().json;\nconst targetTime = new Date(action.time).getTime();\nconst now = Date.now();\nconst waitSeconds = Math.max(0, Math.floor((targetTime - now) / 1000));\n\nreturn [{\n  json: {\n    ...action,\n    waitSeconds\n  }\n}];\n"
+      },
+      "id": "calc-wait",
+      "name": "Calc Wait Time",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1536,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "amount": "={{$json.waitSeconds}}"
+      },
+      "id": "wait-action",
+      "name": "Wait Until Action Time",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        -96
+      ],
+      "webhookId": "a397676b-12ae-4fd0-97eb-f4c86d3b1703"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Execute a single Tuya command for the current scheduled action\nconst crypto = require('crypto');\nconst fs = require('fs');\nconst config = JSON.parse(fs.readFileSync('/home/node/.n8n/config.json', 'utf8'));\n\nconst action = $input.first().json;\n\nconst TUYA_ACCESS_ID = config.secrets.TUYA_ACCESS_ID;\nconst TUYA_ACCESS_SECRET = config.secrets.TUYA_ACCESS_SECRET;\nconst API_URL = 'https://openapi.tuyaeu.com';\n\n// Get Tuya token\nconst timestamp = Date.now().toString();\nconst tokenPath = '/v1.0/token?grant_type=1';\nconst contentHash = crypto.createHash('sha256').update('').digest('hex');\nconst stringToSign = 'GET\\n' + contentHash + '\\n\\n' + tokenPath;\nconst str = TUYA_ACCESS_ID + timestamp + stringToSign;\nconst sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET).update(str).digest('hex').toUpperCase();\n\nconst tokenResp = await this.helpers.httpRequest({\n  method: 'GET',\n  url: API_URL + tokenPath,\n  headers: { 't': timestamp, 'sign': sign, 'client_id': TUYA_ACCESS_ID, 'sign_method': 'HMAC-SHA256' },\n  json: true\n});\n\nconst token = tokenResp.result.access_token;\n\n// Send command\nconst cmdTimestamp = Date.now().toString();\nconst cmdPath = '/v1.0/devices/' + action.deviceId + '/commands';\nconst body = JSON.stringify({ commands: action.commands });\n\nconst cmdContentHash = crypto.createHash('sha256').update(body).digest('hex');\nconst cmdStringToSign = 'POST\\n' + cmdContentHash + '\\n\\n' + cmdPath;\nconst cmdStr = TUYA_ACCESS_ID + token + cmdTimestamp + cmdStringToSign;\nconst cmdSign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET).update(cmdStr).digest('hex').toUpperCase();\n\nconst result = await this.helpers.httpRequest({\n  method: 'POST',\n  url: API_URL + cmdPath,\n  headers: {\n    't': cmdTimestamp, 'sign': cmdSign, 'client_id': TUYA_ACCESS_ID,\n    'sign_method': 'HMAC-SHA256', 'access_token': token,\n    'Content-Type': 'application/json'\n  },\n  body: body,\n  json: true\n});\n\nreturn [{\n  json: {\n    entity: action.entity,\n    action: action.action,\n    time: action.time,\n    success: result.success,\n    explanation: action.explanation\n  }\n}];\n"
+      },
+      "id": "exec-action",
+      "name": "Execute Tuya Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1984,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Send beautiful Erev Shabbat/Chag summary email\nconst fs = require('fs');\nconst config = JSON.parse(fs.readFileSync('/home/node/.n8n/config.json', 'utf8'));\nconst shabbatData = $('Check Shabbat Entry').first().json;\nconst aiResult = $('AI Shabbat Steward').first().json;\n\nconst candleLighting = shabbatData.candleLighting \n  ? new Date(shabbatData.candleLighting).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' })\n  : 'לא זמין';\n\nconst holidayName = shabbatData.holidayName || 'שבת';\nconst isTransition = shabbatData.isTransitionCholToKodesh;\nconst actionsCount = (aiResult.schedule || []).length;\nconst reasoning = aiResult.reasoning_summary || '';\n\n// Build schedule table rows\nconst scheduleRows = (aiResult.schedule || []).map(action => {\n  const time = new Date(action.time).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });\n  const icon = action.action === 'OFF' ? '🔴' : '🟢';\n  return `<tr>\n    <td style=\"padding: 8px; border-bottom: 1px solid #eee;\">${icon} ${time}</td>\n    <td style=\"padding: 8px; border-bottom: 1px solid #eee;\">${action.entity}</td>\n    <td style=\"padding: 8px; border-bottom: 1px solid #eee;\">${action.explanation || ''}</td>\n  </tr>`;\n}).join('');\n\nconst htmlBody = `\n<div style=\"direction: rtl; font-family: 'Segoe UI', Tahoma, sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);\">\n  <div style=\"background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; text-align: center;\">\n    <h1 style=\"margin: 0; font-size: 26px;\">🕯️ ${holidayName} שלום!</h1>\n    <p style=\"margin: 10px 0 0; font-size: 16px; opacity: 0.9;\">הדלקת נרות: ${candleLighting}</p>\n  </div>\n  \n  <div style=\"padding: 25px; color: #333;\">\n    <div style=\"background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;\">\n      <p style=\"margin: 0; font-size: 15px; font-weight: bold;\">🤖 ניתוח AI:</p>\n      <p style=\"margin: 8px 0 0; font-size: 14px; color: #555;\">${reasoning}</p>\n    </div>\n\n    <p style=\"font-size: 15px; font-weight: bold; margin-bottom: 10px;\">\n      ${isTransition ? '🔄 מעבר חול → קודש' : '✡️ קודש → קודש (חג מחובר)'}\n    </p>\n\n    <p style=\"font-size: 14px; color: #666; margin-bottom: 15px;\">\n      ${actionsCount} פעולות מתוזמנות לערב:\n    </p>\n\n    <table style=\"width: 100%; border-collapse: collapse; font-size: 13px;\">\n      <thead>\n        <tr style=\"background: #f0f0f0;\">\n          <th style=\"padding: 8px; text-align: right;\">שעה</th>\n          <th style=\"padding: 8px; text-align: right;\">מכשיר</th>\n          <th style=\"padding: 8px; text-align: right;\">סיבה</th>\n        </tr>\n      </thead>\n      <tbody>\n        ${scheduleRows}\n      </tbody>\n    </table>\n  </div>\n\n  <div style=\"background: #f8f9fa; padding: 12px; text-align: center; font-size: 11px; color: #999;\">\n    AI Shabbat Steward | n8n Automation\n  </div>\n</div>\n`;\n\nreturn [{\n  json: {\n    to: config.settings.NOTIFICATION_EMAIL,\n    subject: `🕯️ ${holidayName} - סיכום הכנות (${actionsCount} פעולות)`,\n    html: htmlBody\n  }\n}];\n"
+      },
+      "id": "erev-email-prep",
+      "name": "Prepare Erev Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "your@email.com",
+        "toEmail": "={{.to}}",
+        "subject": "={{.subject}}",
+        "html": "={{.html}}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "erev-email-send",
+      "name": "Send Erev Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1440,
+        -256
+      ],
+      "webhookId": "5e435e4d-e151-4925-88df-0f1c713581f0",
+      "credentials": {
+        "smtp": {
+          "id": "ryZJ2VT9HAAZoS3d",
+          "name": "Gmail Relay SMTP"
+        }
+      }
     }
   ],
   "connections": {
@@ -186,18 +272,67 @@
       "main": [
         [
           {
-            "node": "Plan Erev Shabbat",
+            "node": "AI Shabbat Steward",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Plan Erev Shabbat": {
+    "AI Shabbat Steward": {
       "main": [
         [
           {
-            "node": "Execute Erev Actions",
+            "node": "Split Schedule",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Erev Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Schedule": {
+      "main": [
+        [
+          {
+            "node": "Calc Wait Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calc Wait Time": {
+      "main": [
+        [
+          {
+            "node": "Wait Until Action Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Until Action Time": {
+      "main": [
+        [
+          {
+            "node": "Execute Tuya Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Erev Email": {
+      "main": [
+        [
+          {
+            "node": "Send Erev Email",
             "type": "main",
             "index": 0
           }

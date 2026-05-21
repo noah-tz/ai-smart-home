@@ -1,5 +1,5 @@
 {
-  "name": "AI Shabbat Day Manager",
+  "name": "AI Shabbat Day Steward",
   "settings": {
     "executionOrder": "v1",
     "timezone": "Asia/Jerusalem"
@@ -10,14 +10,14 @@
         "rule": {
           "interval": [
             {
-              "triggerAtHour": 11,
+              "triggerAtHour": 0,
               "triggerAtMinute": 0
             }
           ]
         }
       },
       "id": "cron-shabbat-day",
-      "name": "Daily 11:00 Check",
+      "name": "Daily 00:00 Check",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -34,7 +34,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
+        250,
         0
       ]
     },
@@ -47,7 +47,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        440,
+        500,
         0
       ]
     },
@@ -73,7 +73,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        660,
+        750,
         0
       ]
     },
@@ -86,21 +86,21 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        880,
-        -100
+        1000,
+        -50
       ]
     },
     {
       "parameters": {
-        "jsCode": "// AI Yom Kodesh Steward - Manages Shabbat/Chag day schedule\n// Runs at 11:00 on Shabbat/Chag to manage daytime actions\nconst config = $('Load Config').first().json;\nconst kodeshData = $('Check Yom Kodesh').first().json;\nconst weatherData = $('Get Weather Forecast').first().json;\n\nconst GEMINI_KEY = config.secrets.GEMINI_API_KEY;\nconst devices = config.devices;\n\nconst prompt = `You are the \"AI Shabbat Day Steward,\" managing a smart home DURING Shabbat/Chag.\nIt is currently Yom Kodesh (Shabbat or Holiday). You must plan the remaining actions for today.\n\nIMPORTANT: All actions were pre-scheduled before Shabbat. You are now executing the DAYTIME portion.\nNo new halachic issues - these are pre-programmed timers running automatically.\n\nAvailable smart entities:\n- Living Room ACs (2 units: ID=\"${devices.AC_LIVING_1}\" and ID=\"${devices.AC_LIVING_2}\")\n- Bedroom AC (ID=\"${devices.AC_BEDROOM}\")\n- Kids Room AC (ID=\"${devices.AC_KIDS}\")\n- Kitchen AC (ID=\"${devices.AC_KITCHEN}\")\n- Mini-Bar Plug (ID=\"${devices.MINI_BAR}\" - code \"switch_1\")\n- Living Room Shutters (Left=\"${devices.SHUTTER_LEFT}\", Right=\"${devices.SHUTTER_RIGHT}\")\n\nContext:\n- Today: ${kodeshData.dateStr}\n- Is Yom Kodesh: ${kodeshData.isYomKodesh}\n- Transition to Chol today: ${kodeshData.transitionToChol}\n- Havdalah time: ${kodeshData.havdalahToday || 'No havdalah today (multi-day chag)'}\n- Sunset: ${kodeshData.sunset}\n- Is Summer: ${kodeshData.isSummerMonth}\n- Month: ${kodeshData.month}\n- Weather forecast: ${JSON.stringify(weatherData.forecast.slice(0, 12))}\n- Max Temperature: ${weatherData.maxTemp}°C\n- Current Temperature: ${weatherData.currentTemp}°C\n\nRULES:\n1. Turn OFF bedroom/kids ACs at 11:00 (they ran all night).\n2. Kitchen AC ON at 11:30, OFF at 12:00 (pre-lunch cooling).\n3. Living room ACs ON 12:00-14:00 for Shabbat lunch (summer + hot only).\n4. Bedroom AC ON 14:00 until sunset (always in summer for afternoon rest).\n5. Kids AC ON 14:00 until sunset (only if temp > 20°C).\n6. If transition to Chol (havdalah today): Turn ON Mini-Bar at havdalah time.\n7. Shutters: Adjust based on sun position and heat.\n8. Skip AC actions if NOT summer month (5-10) or temperature < 20°C (except bedroom which is always on in summer).\n\nOutput ONLY valid JSON:\n{\n  \"reasoning_summary\": \"Brief Hebrew summary of today's plan\",\n  \"schedule\": [\n    {\n      \"time\": \"YYYY-MM-DDTHH:MM:SS+03:00\",\n      \"deviceId\": \"tuya_device_id\",\n      \"entity\": \"entity_name\",\n      \"action\": \"ON/OFF/SET\",\n      \"commands\": [{\"code\": \"command_code\", \"value\": \"value\"}],\n      \"explanation\": \"Why (in Hebrew)\"\n    }\n  ]\n}`;\n\nconst payload = {\n  contents: [{ role: \"user\", parts: [{ text: prompt }] }],\n  generationConfig: {\n    responseMimeType: \"application/json\",\n    responseSchema: {\n      type: \"object\",\n      properties: {\n        reasoning_summary: { type: \"string\" },\n        schedule: {\n          type: \"array\",\n          items: {\n            type: \"object\",\n            properties: {\n              time: { type: \"string\" },\n              deviceId: { type: \"string\" },\n              entity: { type: \"string\" },\n              action: { type: \"string\" },\n              commands: {\n                type: \"array\",\n                items: {\n                  type: \"object\",\n                  properties: {\n                    code: { type: \"string\" },\n                    value: {}\n                  }\n                }\n              },\n              explanation: { type: \"string\" }\n            },\n            required: [\"time\", \"deviceId\", \"entity\", \"action\", \"commands\", \"explanation\"]\n          }\n        }\n      },\n      required: [\"reasoning_summary\", \"schedule\"]\n    }\n  }\n};\n\nconst url = \"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\" + GEMINI_KEY;\n\ntry {\n  const response = await this.helpers.httpRequest({\n    method: 'POST',\n    url: url,\n    body: payload,\n    json: true,\n    headers: { 'Content-Type': 'application/json' }\n  });\n\n  const text = response.candidates[0].content.parts[0].text;\n  const cleaned = text.replace(/```json|```/g, '').trim();\n  const result = JSON.parse(cleaned);\n\n  return [{ json: result }];\n} catch (e) {\n  return [{ json: {\n    reasoning_summary: \"שגיאה בקבלת תשובה מ-AI\",\n    schedule: [],\n    error: e.message\n  }}];\n}\n"
+        "jsCode": "// AI Yom Kodesh (Shabbat/Chag Day) Steward\n// Runs at 11:00 daily. Only acts if today is Kodesh.\n// Responsibilities:\n//   1. Daytime comfort actions (ACs for lunch, afternoon rest)\n//   2. If transition Kodesh→Chol today: turn ON mini-bar at havdalah\n//   Does NOT handle: erev actions, candle lighting shutdowns\nconst config = $('Load Config').first().json;\nconst kodeshData = $('Check Yom Kodesh').first().json;\nconst weatherData = $('Get Weather Forecast').first().json;\n\nconst GEMINI_KEY = config.secrets.GEMINI_API_KEY;\nconst devices = config.devices;\n\nconst prompt = `You are the \"AI Yom Kodesh (Shabbat Day) Steward.\" You manage DAYTIME actions during Shabbat/Chag.\nIt is now 11:00 on a day that is Kodesh (Shabbat or Yom Tov).\n\nYOUR SCOPE (today 11:00 until tonight):\n- Plan daytime comfort actions (ACs, shutters)\n- If there's a transition Kodesh→Chol today (havdalah): turn ON mini-bar at havdalah time\n- You do NOT handle erev/candle lighting (that was yesterday's agent)\n\nTRANSITION LOGIC:\n- transitionToChol: ${kodeshData.transitionToChol}\n  → If TRUE: Havdalah is today. Turn ON mini-bar at havdalah time.\n  → If FALSE: Kodesh continues tomorrow (multi-day). Do NOT turn on mini-bar.\n\nAvailable smart entities:\n- Living Room ACs (IDs: \"${devices.AC_LIVING_1}\", \"${devices.AC_LIVING_2}\" - codes: \"switch\", \"mode\", \"temp_set\")\n- Bedroom AC (ID=\"${devices.AC_BEDROOM}\")\n- Kids Room AC (ID=\"${devices.AC_KIDS}\")\n- Kitchen AC (ID=\"${devices.AC_KITCHEN}\")\n- Mini-Bar (ID=\"${devices.MINI_BAR}\" - code \"switch_1\") - ON only if transition Kodesh→Chol\n- Shutters (Left=\"${devices.SHUTTER_LEFT}\", Right=\"${devices.SHUTTER_RIGHT}\" - code \"percent_control\")\n\nContext:\n- Today: ${kodeshData.dateStr}\n- Transition to Chol: ${kodeshData.transitionToChol}\n- Havdalah time: ${kodeshData.havdalahToday || 'No havdalah today'}\n- Sunset: ${kodeshData.sunset}\n- Is Summer: ${kodeshData.isSummerMonth}\n- Month: ${kodeshData.month}\n- Max Temperature: ${weatherData.maxTemp}°C\n- Current Temperature: ${weatherData.currentTemp}°C\n- Forecast: ${JSON.stringify(weatherData.forecast.slice(0, 12))}\n\nRULES:\n1. Turn OFF bedroom/kids ACs at 11:00 (they ran all night from erev agent).\n2. Kitchen AC ON 11:30, OFF 12:00 (pre-lunch, summer+hot only).\n3. Living room ACs ON 12:00-14:00 (Shabbat lunch, summer+hot only).\n4. Bedroom AC ON 14:00 until sunset (always in summer for afternoon rest).\n5. Kids AC ON 14:00 until sunset (only if temp > 20°C).\n6. If transitionToChol=true: Mini-Bar ON at havdalah time.\n7. If transitionToChol=false: Do NOT touch mini-bar.\n8. Skip AC actions if NOT summer (months 5-10) or temp < 20°C (except bedroom=always in summer).\n\nOutput ONLY valid JSON:\n{\n  \"reasoning_summary\": \"Brief Hebrew summary\",\n  \"schedule\": [\n    {\n      \"time\": \"YYYY-MM-DDTHH:MM:SS+03:00\",\n      \"deviceId\": \"tuya_device_id\",\n      \"entity\": \"entity_name\",\n      \"action\": \"ON/OFF/SET\",\n      \"commands\": [{\"code\": \"command_code\", \"value\": \"value\"}],\n      \"explanation\": \"Why (Hebrew)\"\n    }\n  ]\n}`;\n\nconst payload = {\n  contents: [{ role: \"user\", parts: [{ text: prompt }] }],\n  generationConfig: {\n    responseMimeType: \"application/json\",\n    responseSchema: {\n      type: \"object\",\n      properties: {\n        reasoning_summary: { type: \"string\" },\n        schedule: {\n          type: \"array\",\n          items: {\n            type: \"object\",\n            properties: {\n              time: { type: \"string\" },\n              deviceId: { type: \"string\" },\n              entity: { type: \"string\" },\n              action: { type: \"string\" },\n              commands: { type: \"array\", items: { type: \"object\", properties: { code: { type: \"string\" }, value: {} } } },\n              explanation: { type: \"string\" }\n            },\n            required: [\"time\", \"deviceId\", \"entity\", \"action\", \"commands\", \"explanation\"]\n          }\n        }\n      },\n      required: [\"reasoning_summary\", \"schedule\"]\n    }\n  }\n};\n\nconst url = \"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\" + GEMINI_KEY;\n\ntry {\n  const response = await this.helpers.httpRequest({\n    method: 'POST', url, body: payload, json: true,\n    headers: { 'Content-Type': 'application/json' }\n  });\n  const text = response.candidates[0].content.parts[0].text;\n  const result = JSON.parse(text.replace(/```json|```/g, '').trim());\n  return [{ json: result }];\n} catch (e) {\n  return [{ json: { reasoning_summary: \"שגיאה: \" + e.message, schedule: [] } }];\n}\n"
       },
       "id": "ai-kodesh",
       "name": "AI Yom Kodesh Steward",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1100,
-        -100
+        1250,
+        -50
       ]
     },
     {
@@ -112,8 +112,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1320,
-        -100
+        1500,
+        -50
       ]
     },
     {
@@ -125,23 +125,52 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        880,
+        1000,
         100
       ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Send Yom Kodesh (Shabbat Day) summary email\nconst fs = require('fs');\nconst config = JSON.parse(fs.readFileSync('/home/node/.n8n/config.json', 'utf8'));\nconst kodeshData = $('Check Yom Kodesh').first().json;\nconst aiResult = $('AI Yom Kodesh Steward').first().json;\n\nconst havdalah = kodeshData.havdalahToday\n  ? new Date(kodeshData.havdalahToday).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' })\n  : null;\n\nconst actionsCount = (aiResult.schedule || []).length;\nconst reasoning = aiResult.reasoning_summary || '';\nconst transitionToChol = kodeshData.transitionToChol;\n\nconst scheduleRows = (aiResult.schedule || []).map(action => {\n  const time = new Date(action.time).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });\n  const icon = action.action === 'OFF' ? '🔴' : '🟢';\n  return `<tr>\n    <td style=\"padding: 8px; border-bottom: 1px solid #eee;\">${icon} ${time}</td>\n    <td style=\"padding: 8px; border-bottom: 1px solid #eee;\">${action.entity}</td>\n    <td style=\"padding: 8px; border-bottom: 1px solid #eee;\">${action.explanation || ''}</td>\n  </tr>`;\n}).join('');\n\nconst headerColor = transitionToChol ? '#2d3436' : '#6c5ce7';\nconst statusText = transitionToChol \n  ? `שבת שלום! הבדלה: ${havdalah}` \n  : 'שבת שלום! הקודש ממשיך מחר';\n\nconst htmlBody = `\n<div style=\"direction: rtl; font-family: 'Segoe UI', Tahoma, sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);\">\n  <div style=\"background: linear-gradient(135deg, ${headerColor} 0%, #0984e3 100%); color: white; padding: 25px; text-align: center;\">\n    <h1 style=\"margin: 0; font-size: 24px;\">✡️ ${statusText}</h1>\n  </div>\n  \n  <div style=\"padding: 25px; color: #333;\">\n    <div style=\"background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;\">\n      <p style=\"margin: 0; font-size: 15px; font-weight: bold;\">🤖 תוכנית היום:</p>\n      <p style=\"margin: 8px 0 0; font-size: 14px; color: #555;\">${reasoning}</p>\n    </div>\n\n    ${transitionToChol ? '<p style=\"font-size: 14px; color: #27ae60; font-weight: bold;\">🔄 מעבר קודש → חול הערב — מיני בר יודלק בהבדלה</p>' : '<p style=\"font-size: 14px; color: #8e44ad; font-weight: bold;\">✡️ הקודש ממשיך — אין שינוי במיני בר</p>'}\n\n    <p style=\"font-size: 14px; color: #666; margin-bottom: 15px;\">\n      ${actionsCount} פעולות מתוזמנות להיום:\n    </p>\n\n    <table style=\"width: 100%; border-collapse: collapse; font-size: 13px;\">\n      <thead>\n        <tr style=\"background: #f0f0f0;\">\n          <th style=\"padding: 8px; text-align: right;\">שעה</th>\n          <th style=\"padding: 8px; text-align: right;\">מכשיר</th>\n          <th style=\"padding: 8px; text-align: right;\">סיבה</th>\n        </tr>\n      </thead>\n      <tbody>\n        ${scheduleRows}\n      </tbody>\n    </table>\n  </div>\n\n  <div style=\"background: #f8f9fa; padding: 12px; text-align: center; font-size: 11px; color: #999;\">\n    AI Shabbat Day Manager | n8n Automation\n  </div>\n</div>\n`;\n\nreturn [{\n  json: {\n    to: config.settings.NOTIFICATION_EMAIL,\n    subject: `✡️ שבת שלום - תוכנית היום (${actionsCount} פעולות)`,\n    html: htmlBody\n  }\n}];\n"
+      },
+      "id": "kodesh-email-prep",
+      "name": "Prepare Kodesh Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "your@email.com",
+        "toEmail": "={{.to}}",
+        "subject": "={{.subject}}",
+        "emailType": "html",
+        "html": "={{.html}}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "kodesh-email-send",
+      "name": "Send Kodesh Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1750,
+        -200
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "ryZJ2VT9HAAZoS3d",
+          "name": "Gmail Relay SMTP"
+        }
+      },
+      "webhookId": "24016791-9cd7-4932-8fd3-e56437991bd3"
     }
   ],
   "connections": {
-    "Daily 11:00 Check": {
-      "main": [
-        [
-          {
-            "node": "Load Config",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Load Config": {
       "main": [
         [
@@ -198,6 +227,33 @@
         [
           {
             "node": "Execute Shabbat Actions",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Kodesh Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Kodesh Email": {
+      "main": [
+        [
+          {
+            "node": "Send Kodesh Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily 00:00 Check": {
+      "main": [
+        [
+          {
+            "node": "Load Config",
             "type": "main",
             "index": 0
           }

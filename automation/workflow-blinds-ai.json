@@ -223,8 +223,8 @@
       "webhookId": "44cfd68c-f395-43b0-a37c-151a56ba220b",
       "credentials": {
         "smtp": {
-          "id": "ryZJ2VT9HAAZoS3d",
-          "name": "Gmail Relay SMTP"
+          "id": "Nte5LPFXGEfq7TTg",
+          "name": "Noah SMTP"
         }
       }
     },
@@ -246,7 +246,7 @@
         "rule": {
           "interval": [
             {
-              "triggerAtHour": 2
+              "triggerAtHour": 11
             }
           ]
         }
@@ -289,7 +289,10 @@
       "position": [
         1984,
         -96
-      ]
+      ],
+      "retryOnFail": true,
+      "maxTries": 10,
+      "waitBetweenTries": 120000
     },
     {
       "parameters": {
@@ -313,7 +316,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        110,
+        112,
         0
       ]
     }
