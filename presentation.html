@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Smart Home - Project Presentation</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#0a0a1a;color:#fff;min-height:100vh}
+.nav{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(10,10,26,0.97);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.08);display:flex;justify-content:center;padding:16px 0;gap:8px}
+.nav-btn{padding:12px 30px;border:none;border-radius:30px;cursor:pointer;font-size:15px;font-weight:600;transition:all 0.3s;background:rgba(255,255,255,0.05);color:#888;font-family:inherit}
+.nav-btn:hover{background:rgba(255,255,255,0.1);color:#fff}
+.nav-btn.active{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;box-shadow:0 4px 20px rgba(102,126,234,0.5)}
+.slide{display:none;padding:90px 50px 60px;min-height:100vh}
+.slide.active{display:flex;flex-direction:column;align-items:center;justify-content:center;animation:fadeSlide 0.4s ease}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+.sc{max-width:1100px;width:100%;text-align:center}
+h1{font-size:3.8em;background:linear-gradient(135deg,#667eea,#764ba2,#f093fb);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:15px}
+h2{font-size:2.5em;margin-bottom:8px}
+.sub{font-size:1.3em;color:#999;margin-bottom:35px}
+.desc{font-size:1.05em;color:#bbb;line-height:1.9;max-width:750px;margin:0 auto 40px}
+.badges{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:35px}
+.badge{padding:9px 20px;border-radius:22px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);font-size:13px;color:#ccc}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:25px;margin:35px 0;text-align:right}
+.box{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:28px}
+.box h3{color:#667eea;font-size:1.15em;margin-bottom:12px}
+.box p{color:#bbb;font-size:15px;line-height:1.8}
+.flow{display:flex;align-items:center;justify-content:center;gap:6px;margin:30px 0;flex-wrap:wrap}
+.fn{padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600}
+.fn-t{background:rgba(102,126,234,0.2);border:1px solid #667eea;color:#a8b8ff}
+.fn-p{background:rgba(240,147,251,0.12);border:1px solid #f093fb;color:#f0b0ff}
+.fn-ai{background:rgba(245,87,108,0.18);border:1px solid #f5576c;color:#ff9eab}
+.fn-a{background:rgba(0,242,254,0.12);border:1px solid #00f2fe;color:#7ef8ff}
+.fa{color:#444;font-size:16px}
+.btns{display:flex;gap:14px;justify-content:center;margin-top:30px;flex-wrap:wrap}
+.pb{padding:12px 26px;border:none;border-radius:28px;cursor:pointer;font-size:14px;font-weight:700;transition:all 0.25s;font-family:inherit}
+.pb:hover{transform:scale(1.06);box-shadow:0 6px 25px rgba(0,0,0,0.4)}
+.pb-pr{background:linear-gradient(135deg,#c62a88,#8b1a4a);color:#fff}
+.pb-out{background:linear-gradient(135deg,#1a6baa,#0d4a7a);color:#fff}
+.pb-mail{background:linear-gradient(135deg,#2d8659,#1a5c3a);color:#fff}
+.dual{display:grid;grid-template-columns:1fr 1fr;gap:30px;text-align:right;margin:30px 0}
+.dbox{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:28px}
+.dbox h3{font-size:1.25em;margin-bottom:12px}
+.dbox p{color:#bbb;font-size:15px;line-height:1.8;margin-bottom:12px}
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;align-items:center;justify-content:center;padding:25px}
+.ov.open{display:flex}
+.pop{background:#16162b;border:1px solid rgba(255,255,255,0.12);border-radius:16px;max-width:800px;width:100%;max-height:85vh;overflow-y:auto;padding:35px;position:relative;direction:ltr;text-align:left}
+.pop h3{margin-bottom:18px;color:#667eea;font-size:1.3em;direction:rtl;text-align:right}
+.pop pre{background:#0b0b18;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:22px;font-size:12.5px;line-height:1.7;color:#ddd;white-space:pre-wrap;overflow-x:auto;direction:ltr;text-align:left}
+.pop .email-preview{background:#fff;border-radius:10px;padding:0;overflow:hidden;direction:rtl;text-align:right}
+.pcl{position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.08);border:none;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;transition:background 0.2s}
+.pcl:hover{background:rgba(255,255,255,0.2)}
+@media(max-width:900px){.grid3,.dual{grid-template-columns:1fr}h1{font-size:2.5em}h2{font-size:2em}}
+</style>
+</head>
+<body>
+<nav class="nav">
+<button class="nav-btn active" onclick="go(0)">🏠 סקירה</button>
+<button class="nav-btn" onclick="go(1)">🌤️ סוכן תריסים</button>
+<button class="nav-btn" onclick="go(2)">🕯️ סוכני שבת</button>
+<button class="nav-btn" onclick="go(3)">🌙 סוכן לילה</button>
+</nav>
+
+<div class="slide active" data-idx="0"><div class="sc">
+<div style="font-size:4.5em;margin-bottom:20px">🤖🏠</div>
+<h1>AI Smart Home</h1>
+<p class="sub">מערכת אוטומציה ביתית מונחית בינה מלאכותית</p>
+<p class="desc">ארבעה סוכני AI עצמאיים שמנהלים את הבית בצורה חכמה — מתריסים שנסגרים לפי קרינת שמש, דרך הכנה אוטומטית לשבת וחגים עם מודעות הלכתית מלאה, ועד ניהול אקלים חדר ילדים בזמן שינה.</p>
+<div class="badges">
+<span class="badge">Gemini 2.5 Flash</span><span class="badge">n8n Automation</span><span class="badge">Tuya IoT</span><span class="badge">Hebcal API</span><span class="badge">IMS Weather</span><span class="badge">Tomorrow.io</span><span class="badge">Docker</span><span class="badge">Self-Hosted</span>
+</div>
+</div></div>
+
+<div class="slide" data-idx="1"><div class="sc">
+<div style="font-size:3em;margin-bottom:15px">🌤️</div>
+<h2>Solar Shield Agent</h2>
+<p class="sub">סגירת תריסים אוטומטית לפי קרינת שמש וטמפרטורה</p>
+<div class="grid3">
+<div class="box"><h3>🎯 מטרה</h3><p>למנוע חימום יתר של הסלון בימים שמשיים וחמים, תוך שמירה על אור טבעי בימים מעוננים או קרים. ההחלטה מתקבלת בזמן חצות היום ההלכתי.</p></div>
+<div class="box"><h3>🔧 אמצעים</h3><p><strong>Data:</strong> קרינה גלובלית (W/m²) מתחנת IMS הקרובה — 2 שעות, 10 דקות intervals.<br><strong>AI:</strong> Gemini מנתח ומחליט.<br><strong>Action:</strong> Tuya HMAC-SHA256 signed API.</p></div>
+<div class="box"><h3>🧠 שימוש ב-AI</h3><p>ה-AI מקבל נתונים גולמיים + כללי החלטה ומחזיר <strong>Structured JSON</strong> עם החלטה בוליאנית + נימוק בעברית שנשלח למשתמש במייל מעוצב.</p></div>
+</div>
+<div class="flow">
+<span class="fn fn-t">11:00</span><span class="fa">←</span><span class="fn fn-p">Hebcal חצות</span><span class="fa">←</span><span class="fn fn-p">⏳ Wait</span><span class="fa">←</span><span class="fn fn-p">IMS Data</span><span class="fa">←</span><span class="fn fn-ai">🤖 Gemini</span><span class="fa">←</span><span class="fn fn-a">Tuya</span><span class="fa">←</span><span class="fn fn-a">📧</span>
+</div>
+<div class="btns">
+<button class="pb pb-pr" onclick="pop('bp')">📝 Prompt שנשלח ל-AI</button>
+<button class="pb pb-out" onclick="pop('bo')">📊 Structured Output</button>
+<button class="pb pb-mail" onclick="pop('bm')">📧 מייל שנשלח</button>
+</div>
+</div></div>
+
+<div class="slide" data-idx="2"><div class="sc">
+<div style="font-size:3em;margin-bottom:15px">🕯️✡️</div>
+<h2>Shabbat & Holiday Stewards</h2>
+<p class="sub">שני סוכנים משלימים לניהול שבת וחגים עם מודעות הלכתית</p>
+<div class="dual">
+<div class="dbox">
+<h3 style="color:#f093fb">🕯️ סוכן ערב שבת/חג <span style="font-size:12px;color:#888">(15:00)</span></h3>
+<p><strong>מטרה:</strong> הכנת הבית לכניסת קודש — כיבוי מכשירים + תזמון מזגנים.</p>
+<p><strong>AI:</strong> מקבל זמני נרות, תחזית, מצב מעבר. מחזיר schedule מדויק.</p>
+<p><strong>חכם:</strong> בחג מחובר — לא מכבה שוב מה שכבר כבוי.</p>
+<div class="btns" style="justify-content:flex-start">
+<button class="pb pb-pr" onclick="pop('ep')">📝 Prompt</button>
+<button class="pb pb-out" onclick="pop('eo')">📊 Output</button>
+<button class="pb pb-mail" onclick="pop('em')">📧 מייל</button>
+</div>
+</div>
+<div class="dbox">
+<h3 style="color:#4facfe">✡️ סוכן יום שבת/חג <span style="font-size:12px;color:#888">(00:00)</span></h3>
+<p><strong>מטרה:</strong> ניהול נוחות ביום שבת — ארוחות, מנוחה, הבדלה.</p>
+<p><strong>AI:</strong> מקבל מצב יום, הבדלה, תחזית. מחזיר schedule.</p>
+<p><strong>חכם:</strong> מזהה הבדלה (קודש→חול) ומדליק מיני בר. אם ממשיך — לא נוגע.</p>
+<div class="btns" style="justify-content:flex-start">
+<button class="pb pb-pr" onclick="pop('kp')">📝 Prompt</button>
+<button class="pb pb-out" onclick="pop('ko')">📊 Output</button>
+<button class="pb pb-mail" onclick="pop('km')">📧 מייל</button>
+</div>
+</div>
+</div>
+<div class="flow">
+<span class="fn fn-t">Trigger</span><span class="fa">←</span><span class="fn fn-p">Hebcal</span><span class="fa">←</span><span class="fn fn-p">Weather</span><span class="fa">←</span><span class="fn fn-ai">🤖 Gemini</span><span class="fa">←</span><span class="fn fn-p">Split</span><span class="fa">←</span><span class="fn fn-p">⏳ Wait</span><span class="fa">←</span><span class="fn fn-a">Tuya</span><span class="fa">←</span><span class="fn fn-a">📧</span>
+</div>
+</div></div>
+
+<div class="slide" data-idx="3"><div class="sc">
+<div style="font-size:3em;margin-bottom:15px">🌙</div>
+<h2>Kids Sleep Climate Guardian</h2>
+<p class="sub">ניהול טמפרטורת חדר ילדים לאורך הלילה</p>
+<div class="grid3">
+<div class="box"><h3>🎯 מטרה</h3><p>שמירה על טמפרטורה בריאה לשינת ילדים — לא קר מדי ולא חם מדי. חיסכון באנרגיה כשהאוויר החיצוני מספיק.</p></div>
+<div class="box"><h3>🔧 אמצעים</h3><p><strong>Data:</strong> Tomorrow.io realtime כל שעה.<br><strong>Logic:</strong> סף קיץ 17°C, סף חורף 10°C, hysteresis.<br><strong>Action:</strong> ON/OFF ישיר ל-Tuya.</p></div>
+<div class="box"><h3>🧠 לוגיקה</h3><p><strong>קיץ:</strong> ON מעל 17°C, OFF מתחת.<br><strong>חורף:</strong> ON מתחת 10°C, OFF מעל 12°C.<br><strong>07:00:</strong> סיכום לילה נשלח במייל.</p></div>
+</div>
+<div class="flow">
+<span class="fn fn-t">כל שעה 21-07</span><span class="fa">←</span><span class="fn fn-p">Tomorrow.io</span><span class="fa">←</span><span class="fn fn-ai">🧠 Logic</span><span class="fa">←</span><span class="fn fn-a">Tuya</span><span class="fa">←</span><span class="fn fn-a">📧 סיכום בוקר</span>
+</div>
+<div class="btns">
+<button class="pb pb-pr" onclick="pop('cl')">📝 לוגיקת החלטה</button>
+<button class="pb pb-out" onclick="pop('co')">📊 Output לדוגמא</button>
+<button class="pb pb-mail" onclick="pop('cm')">📧 מייל סיכום לילה</button>
+</div>
+</div></div>
+
+<!-- MODALS -->
+<div class="ov" id="m-bp"><div class="pop"><button class="pcl" onclick="cls('bp')">✕</button>
+<h3>🌤️ Full AI Prompt — Solar Shield Agent</h3>
+<pre>Analyze the following IMS weather data from the last 2 hours (10-minute intervals):
+
+{"stationId":188,"stationName":"ZOVA","dataPoints":[
+  {"datetime":"2026-05-20T09:00:00+03:00","rain":0,"humidity":33,"globalRadiation":767,"temperature":21.5},
+  {"datetime":"2026-05-20T09:10:00+03:00","rain":0,"humidity":35,"globalRadiation":790,"temperature":21.7},
+  {"datetime":"2026-05-20T09:20:00+03:00","rain":0,"humidity":35,"globalRadiation":810,"temperature":21.4},
+  {"datetime":"2026-05-20T09:30:00+03:00","rain":0,"humidity":34,"globalRadiation":834,"temperature":21.8},
+  {"datetime":"2026-05-20T09:40:00+03:00","rain":0,"humidity":36,"globalRadiation":856,"temperature":22.3}
+]}
+
+Your task is to decide if the blinds should remain OPEN (isCloudy: true) or CLOSE (isCloudy: false).
+
+Data Context:
+- 'globalRadiation' is measured in W/m². Values below 400 W/m² indicate cloudy conditions.
+- 'rain' > 0 indicates active rain.
+
+Rules:
+1. For each interval, determine if it is 'cloudy/rainy' (globalRadiation &lt; 400 OR rain > 0) or 'sunny'.
+2. If more than 70% of the intervals were 'cloudy/rainy', return isCloudy: true.
+3. If sunny but COLD (temperature below 20°C), return isCloudy: true (let sun heat house).
+4. Only return isCloudy: false if sunny AND temperature >= 20°C.
+5. Provide a detailed reason for your decision in Hebrew.
+
+Return JSON matching schema: {"isCloudy": boolean, "reason": string}
+
+generationConfig: {
+  responseMimeType: "application/json",
+  responseSchema: { type: "object", properties: { isCloudy: {type:"boolean"}, reason: {type:"string"} }, required: ["isCloudy","reason"] }
+}</pre></div></div>
+
+<div class="ov" id="m-bo"><div class="pop"><button class="pcl" onclick="cls('bo')">✕</button>
+<h3>🌤️ Structured Output — Solar Shield Agent</h3>
+<pre>{
+  "isCloudy": false,
+  "reason": "כל מדידות הקרינה בשעתיים האחרונות מעל 700 W/m² (767, 790, 810, 834, 856), ללא גשם כלל, והטמפרטורה יציבה מעל 21°C. 0% מהמדידות מעוננות — הרבה מתחת לסף 70%. מדובר ביום שמשי וחם מספיק — התריסים ייסגרו כדי למנוע חימום יתר של הסלון."
+}</pre></div></div>
+
+<div class="ov" id="m-bm"><div class="pop"><button class="pcl" onclick="cls('bm')">✕</button>
+<h3>📧 מייל שנשלח — Solar Shield Agent</h3>
+<div class="email-preview">
+<div style="background:#e67e22;color:white;padding:20px;text-align:center"><h2 style="margin:0;font-size:22px">☀️ התריסים נסגרים כעת</h2></div>
+<div style="padding:25px;color:#333;line-height:1.7"><p style="font-size:16px;font-weight:bold;margin-bottom:10px">ניתוח המערכת:</p><div style="background:#f9f9f9;padding:15px;border-right:5px solid #e67e22;border-radius:4px;margin-bottom:15px;font-style:italic;color:#555">כל מדידות הקרינה בשעתיים האחרונות מעל 700 W/m², ללא גשם, והטמפרטורה מעל 21°C. מדובר ביום שמשי וחם — התריסים ייסגרו כדי למנוע חימום יתר של הסלון.</div><p style="font-size:13px;color:#777">ההחלטה התקבלה על ידי בינה מלאכותית בהתבסס על נתוני השירות המטאורולוגי ב-2 השעות האחרונות.</p></div>
+<div style="background:#f1f1f1;padding:10px;text-align:center;font-size:11px;color:#999">AI Weather Automation System | n8n</div>
+</div></div></div>
+
+<div class="ov" id="m-ep"><div class="pop"><button class="pcl" onclick="cls('ep')">✕</button>
+<h3>🕯️ Full AI Prompt — Erev Shabbat Steward</h3>
+<pre>You are the "AI Erev Shabbat/Chag Steward." You plan EVENING actions for tonight.
+It is now 15:00. You only act if there is a Kodesh entry (candle lighting) tonight.
+
+YOUR SCOPE: Plan actions from NOW (15:00) until tomorrow morning 11:00.
+
+TRANSITION LOGIC:
+- isTransitionCholToKodesh: true
+  → Today is Chol transitioning to Kodesh. MUST turn OFF boiler + mini-bar.
+
+Available smart entities:
+- Boiler (ID="DEVICE_BOILER" - code "switch_1")
+- Mini-Bar (ID="DEVICE_MINI_BAR" - code "switch_1")
+- Living Room ACs (IDs: "DEVICE_AC_LIVING_1", "DEVICE_AC_LIVING_2")
+- Bedroom AC (ID="DEVICE_AC_BEDROOM")
+- Kids Room AC (ID="DEVICE_AC_KIDS")
+- Shutters (Left="DEVICE_SHUTTER_LEFT", Right="DEVICE_SHUTTER_RIGHT")
+
+Context:
+- Candle Lighting: 2026-05-22T19:18:00+03:00
+- Sunset: 2026-05-22T19:36:00+03:00
+- Is Summer: true | Month: 5
+- Max Temperature: 31°C | Current: 29°C
+- Forecast: [{"time":"15:00","temp":31},{"time":"18:00","temp":28},{"time":"21:00","temp":24},{"time":"00:00","temp":21}]
+
+RULES:
+1. Boiler OFF 30 min before candle lighting
+2. Mini-Bar OFF at candle lighting
+3. Summer + hot: Living room ACs ON 1hr after sunset for 2hrs (dinner)
+4. Bedroom/Kids ACs ON after dinner until 11:00 next day
+5. Shutters: Close before sunset if hot day
+
+generationConfig: { responseMimeType: "application/json", responseSchema: {...} }</pre></div></div>
+
+<div class="ov" id="m-eo"><div class="pop"><button class="pcl" onclick="cls('eo')">✕</button>
+<h3>🕯️ Structured Output — Erev Shabbat Steward</h3>
+<pre>{
+  "reasoning_summary": "ערב שבת חם (31°C). מעבר חול→קודש: כיבוי דוד 30 דק' לפני נרות ומיני בר בהדלקה. הפעלת מזגני סלון שעה אחרי שקיעה לסעודת ליל שבת (2 שעות). מזגני שינה וילדים אחרי הסעודה עד הבוקר. תריסים נסגרים לפני שקיעה.",
+  "schedule": [
+    {"time":"2026-05-22T18:48:00+03:00","deviceId":"DEVICE_BOILER","entity":"Boiler","action":"OFF","commands":[{"code":"switch_1","value":false}],"explanation":"כיבוי דוד 30 דקות לפני הדלקת נרות"},
+    {"time":"2026-05-22T19:00:00+03:00","deviceId":"DEVICE_SHUTTER_LEFT","entity":"Shutter Left","action":"SET","commands":[{"code":"percent_control","value":0}],"explanation":"סגירת תריס שמאלי לפני שקיעה — יום חם"},
+    {"time":"2026-05-22T19:00:00+03:00","deviceId":"DEVICE_SHUTTER_RIGHT","entity":"Shutter Right","action":"SET","commands":[{"code":"percent_control","value":0}],"explanation":"סגירת תריס ימני"},
+    {"time":"2026-05-22T19:18:00+03:00","deviceId":"DEVICE_MINI_BAR","entity":"Mini-Bar","action":"OFF","commands":[{"code":"switch_1","value":false}],"explanation":"כיבוי מיני בר בהדלקת נרות — דרישה הלכתית"},
+    {"time":"2026-05-22T20:36:00+03:00","deviceId":"DEVICE_AC_LIVING_1","entity":"AC Living 1","action":"ON","commands":[{"code":"switch","value":true},{"code":"mode","value":"cold"},{"code":"temp_set","value":24}],"explanation":"מזגן סלון 1 — שעה אחרי שקיעה לסעודת ליל שבת"},
+    {"time":"2026-05-22T20:36:00+03:00","deviceId":"DEVICE_AC_LIVING_2","entity":"AC Living 2","action":"ON","commands":[{"code":"switch","value":true},{"code":"mode","value":"cold"},{"code":"temp_set","value":24}],"explanation":"מזגן סלון 2"},
+    {"time":"2026-05-22T22:36:00+03:00","deviceId":"DEVICE_AC_LIVING_1","entity":"AC Living 1","action":"OFF","commands":[{"code":"switch","value":false}],"explanation":"כיבוי מזגני סלון אחרי סעודה"},
+    {"time":"2026-05-22T22:36:00+03:00","deviceId":"DEVICE_AC_BEDROOM","entity":"AC Bedroom","action":"ON","commands":[{"code":"switch","value":true},{"code":"mode","value":"cold"},{"code":"temp_set","value":24}],"explanation":"מזגן שינה — עד 11:00 מחר"},
+    {"time":"2026-05-22T22:36:00+03:00","deviceId":"DEVICE_AC_KIDS","entity":"AC Kids","action":"ON","commands":[{"code":"switch","value":true},{"code":"mode","value":"cold"},{"code":"temp_set","value":24}],"explanation":"מזגן ילדים — עד 11:00 מחר"}
+  ]
+}</pre></div></div>
+
+<div class="ov" id="m-em"><div class="pop"><button class="pcl" onclick="cls('em')">✕</button>
+<h3>📧 מייל — Erev Shabbat Steward</h3>
+<div class="email-preview">
+<div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:25px;text-align:center"><h2 style="margin:0;font-size:22px">🕯️ שבת שלום!</h2><p style="margin:10px 0 0;opacity:0.9">הדלקת נרות: 19:18</p></div>
+<div style="padding:25px;color:#333;line-height:1.7">
+<div style="background:#f8f9fa;padding:15px;border-radius:8px;margin-bottom:20px"><p style="margin:0;font-weight:bold">🤖 ניתוח AI:</p><p style="margin:8px 0 0;color:#555">ערב שבת חם (31°C). מעבר חול→קודש: כיבוי דוד ומיני בר. מזגני סלון לסעודה ומזגני שינה ללילה.</p></div>
+<p style="font-weight:bold;margin-bottom:10px">🔄 מעבר חול → קודש</p>
+<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f0f0f0"><th style="padding:8px;text-align:right">שעה</th><th style="padding:8px;text-align:right">מכשיר</th><th style="padding:8px;text-align:right">סיבה</th></tr></thead><tbody>
+<tr><td style="padding:8px;border-bottom:1px solid #eee">🔴 18:48</td><td style="padding:8px;border-bottom:1px solid #eee">Boiler</td><td style="padding:8px;border-bottom:1px solid #eee">כיבוי 30 דק' לפני נרות</td></tr>
+<tr><td style="padding:8px;border-bottom:1px solid #eee">🔴 19:18</td><td style="padding:8px;border-bottom:1px solid #eee">Mini-Bar</td><td style="padding:8px;border-bottom:1px solid #eee">כיבוי בהדלקת נרות</td></tr>
+<tr><td style="padding:8px;border-bottom:1px solid #eee">🟢 20:36</td><td style="padding:8px;border-bottom:1px solid #eee">AC Living 1+2</td><td style="padding:8px;border-bottom:1px solid #eee">סעודת ליל שבת</td></tr>
+<tr><td style="padding:8px;border-bottom:1px solid #eee">🟢 22:36</td><td style="padding:8px;border-bottom:1px solid #eee">AC Bedroom + Kids</td><td style="padding:8px;border-bottom:1px solid #eee">מזגני שינה ללילה</td></tr>
+</tbody></table></div>
+<div style="background:#f8f9fa;padding:12px;text-align:center;font-size:11px;color:#999">AI Shabbat Steward | n8n Automation</div>
+</div></div></div>
+
+<div class="ov" id="m-kp"><div class="pop"><button class="pcl" onclick="cls('kp')">✕</button>
+<h3>✡️ Full AI Prompt — Shabbat Day Steward</h3>
+<pre>You are the "AI Yom Kodesh Steward." Manage DAYTIME actions during Shabbat/Chag.
+It is now 00:00 on a day that is Kodesh.
+
+YOUR SCOPE: Plan daytime comfort actions + detect Kodesh→Chol transition.
+
+TRANSITION LOGIC:
+- transitionToChol: true → Havdalah today. Turn ON mini-bar at havdalah.
+
+Available entities:
+- Living Room ACs (IDs: "DEVICE_AC_LIVING_1", "DEVICE_AC_LIVING_2")
+- Bedroom AC (ID="DEVICE_AC_BEDROOM")
+- Kids Room AC (ID="DEVICE_AC_KIDS")
+- Kitchen AC (ID="DEVICE_AC_KITCHEN")
+- Mini-Bar (ID="DEVICE_MINI_BAR")
+
+Context:
+- Today: 2026-05-23 (Shabbat)
+- Transition to Chol: true
+- Havdalah: 2026-05-23T20:22:00+03:00
+- Sunset: 2026-05-23T19:37:00+03:00
+- Is Summer: true | Max Temp: 29°C
+
+RULES:
+1. Turn OFF bedroom/kids ACs at 11:00 (ran all night)
+2. Kitchen AC ON 11:30, OFF 12:00 (pre-lunch)
+3. Living room ACs ON 12:00-14:00 (Shabbat lunch)
+4. Bedroom AC ON 14:00 until sunset (afternoon rest, always in summer)
+5. Kids AC ON 14:00 until sunset (only if temp > 20°C)
+6. transitionToChol=true → Mini-Bar ON at havdalah
+7. Skip ACs if NOT summer or temp &lt; 20°C (except bedroom)
+
+generationConfig: { responseMimeType: "application/json", responseSchema: {...} }</pre></div></div>
+
+<div class="ov" id="m-ko"><div class="pop"><button class="pcl" onclick="cls('ko')">✕</button>
+<h3>✡️ Structured Output — Shabbat Day Steward</h3>
+<pre>{
+  "reasoning_summary": "שבת שלום! יום חם (29°C). כיבוי מזגני לילה ב-11:00, מטבח לפני ארוחה, סלון לצהריים, חדרים למנוחה. מיני בר יודלק בהבדלה (20:22).",
+  "schedule": [
+    {"time":"2026-05-23T11:00:00+03:00","deviceId":"DEVICE_AC_BEDROOM","entity":"AC Bedroom","action":"OFF","commands":[{"code":"switch","value":false}],"explanation":"כיבוי מזגן שינה — רץ מאתמול"},
+    {"time":"2026-05-23T11:00:00+03:00","deviceId":"DEVICE_AC_KIDS","entity":"AC Kids","action":"OFF","commands":[{"code":"switch","value":false}],"explanation":"כיבוי מזגן ילדים"},
+    {"time":"2026-05-23T11:30:00+03:00","deviceId":"DEVICE_AC_KITCHEN","entity":"AC Kitchen","action":"ON","commands":[{"code":"switch","value":true},{"code":"mode","value":"cold"},{"code":"temp_set","value":23}],"explanation":"קירור מטבח לפני ארוחת צהריים"},
+    {"time":"2026-05-23T12:00:00+03:00","deviceId":"DEVICE_AC_KITCHEN","entity":"AC Kitchen","action":"OFF","commands":[{"code":"switch","value":false}],"explanation":"כיבוי מטבח — ארוחה מתחילה"},
+    {"time":"2026-05-23T12:00:00+03:00","deviceId":"DEVICE_AC_LIVING_1","entity":"AC Living 1","action":"ON","commands":[{"code":"switch","value":true},{"code":"mode","value":"cold"},{"code":"temp_set","value":24}],"explanation":"מזגן סלון לסעודת שבת"},
+    {"time":"2026-05-23T14:00:00+03:00","deviceId":"DEVICE_AC_LIVING_1","entity":"AC Living 1","action":"OFF","commands":[{"code":"switch","value":false}],"explanation":"כיבוי סלון אחרי ארוחה"},
+    {"time":"2026-05-23T14:00:00+03:00","deviceId":"DEVICE_AC_BEDROOM","entity":"AC Bedroom","action":"ON","commands":[{"code":"switch","value":true},{"code":"mode","value":"cold"},{"code":"temp_set","value":24}],"explanation":"מזגן שינה למנוחת צהריים"},
+    {"time":"2026-05-23T19:37:00+03:00","deviceId":"DEVICE_AC_BEDROOM","entity":"AC Bedroom","action":"OFF","commands":[{"code":"switch","value":false}],"explanation":"כיבוי בשקיעה"},
+    {"time":"2026-05-23T20:22:00+03:00","deviceId":"DEVICE_MINI_BAR","entity":"Mini-Bar","action":"ON","commands":[{"code":"switch_1","value":true}],"explanation":"הדלקת מיני בר בהבדלה — מעבר קודש לחול"}
+  ]
+}</pre></div></div>
+
+<div class="ov" id="m-km"><div class="pop"><button class="pcl" onclick="cls('km')">✕</button>
+<h3>📧 מייל — Shabbat Day Steward</h3>
+<div class="email-preview">
+<div style="background:linear-gradient(135deg,#2d3436,#0984e3);color:white;padding:25px;text-align:center"><h2 style="margin:0;font-size:22px">✡️ שבת שלום! הבדלה: 20:22</h2></div>
+<div style="padding:25px;color:#333;line-height:1.7">
+<div style="background:#f8f9fa;padding:15px;border-radius:8px;margin-bottom:20px"><p style="margin:0;font-weight:bold">🤖 תוכנית היום:</p><p style="margin:8px 0 0;color:#555">יום חם (29°C). כיבוי מזגני לילה, הפעלה לצהריים ומנוחה. מיני בר יודלק בהבדלה.</p></div>
+<p style="color:#27ae60;font-weight:bold;margin-bottom:15px">🔄 מעבר קודש → חול הערב — מיני בר יודלק בהבדלה</p>
+<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f0f0f0"><th style="padding:8px;text-align:right">שעה</th><th style="padding:8px;text-align:right">מכשיר</th><th style="padding:8px;text-align:right">סיבה</th></tr></thead><tbody>
+<tr><td style="padding:8px;border-bottom:1px solid #eee">🔴 11:00</td><td style="padding:8px;border-bottom:1px solid #eee">AC Bedroom+Kids</td><td style="padding:8px;border-bottom:1px solid #eee">כיבוי מזגני לילה</td></tr>
+<tr><td style="padding:8px;border-bottom:1px solid #eee">🟢 12:00</td><td style="padding:8px;border-bottom:1px solid #eee">AC Living</td><td style="padding:8px;border-bottom:1px solid #eee">סעודת שבת</td></tr>
+<tr><td style="padding:8px;border-bottom:1px solid #eee">🟢 14:00</td><td style="padding:8px;border-bottom:1px solid #eee">AC Bedroom</td><td style="padding:8px;border-bottom:1px solid #eee">מנוחת צהריים</td></tr>
+<tr><td style="padding:8px;border-bottom:1px solid #eee">🟢 20:22</td><td style="padding:8px;border-bottom:1px solid #eee">Mini-Bar</td><td style="padding:8px;border-bottom:1px solid #eee">הדלקה בהבדלה</td></tr>
+</tbody></table></div>
+<div style="background:#f8f9fa;padding:12px;text-align:center;font-size:11px;color:#999">AI Shabbat Day Steward | n8n</div>
+</div></div></div>
+
+<div class="ov" id="m-cl"><div class="pop"><button class="pcl" onclick="cls('cl')">✕</button>
+<h3>🌙 Decision Logic — Kids Sleep Guardian</h3>
+<pre>// Kids Sleep Climate Guardian
+// Runs EVERY HOUR between 21:00-07:00
+// Gets real-time outdoor temperature from Tomorrow.io API
+
+const outdoorTemp = await getTomorrowIO(latitude, longitude);
+const month = new Date().getMonth() + 1;
+const isSummer = [5,6,7,8,9,10].includes(month);
+
+// ═══════════════════════════════════════════════
+// SUMMER LOGIC (May - October)
+// AC is pre-set to COOL mode on the device
+// ═══════════════════════════════════════════════
+if (isSummer) {
+  if (outdoorTemp >= 17) {
+    → AC ON   // Still warm outside, cooling needed
+  } else {
+    → AC OFF  // Natural cooling sufficient, save energy
+  }
+}
+
+// ═══════════════════════════════════════════════
+// WINTER LOGIC (November - April)
+// AC is pre-set to HEAT mode on the device
+// ═══════════════════════════════════════════════
+if (!isSummer) {
+  if (outdoorTemp &lt; 10) {
+    → AC ON   // Cold outside, heating needed for children
+  } else if (outdoorTemp > 12) {
+    → AC OFF  // Warm enough, no heating needed
+  } else {
+    → MAINTAIN // Hysteresis zone (10-12°C): don't toggle
+  }
+}
+
+// At 07:00: Send night summary email with all decisions made</pre></div></div>
+
+<div class="ov" id="m-co"><div class="pop"><button class="pcl" onclick="cls('co')">✕</button>
+<h3>🌙 Output Example — Kids Sleep Guardian</h3>
+<pre>// Example: 02:00 AM, June, outdoor temp dropped to 15.2°C
+
+{
+  "action": "OFF",
+  "reason": "קיץ, טמפרטורה חיצונית 15.2°C (מתחת ל-17°C) — מזגן כבוי, קירור טבעי מספיק",
+  "outdoorTemp": 15.2,
+  "isSummer": true,
+  "month": 6,
+  "hour": 2,
+  "tuyaSuccess": true
+}
+
+// Example: 23:00, January, outdoor temp is 8°C
+
+{
+  "action": "ON",
+  "reason": "חורף, טמפרטורה חיצונית 8°C (מתחת ל-10°C) — מזגן חימום דולק לחדר ילדים",
+  "outdoorTemp": 8.0,
+  "isSummer": false,
+  "month": 1,
+  "hour": 23,
+  "tuyaSuccess": true
+}</pre></div></div>
+
+<div class="ov" id="m-cm"><div class="pop"><button class="pcl" onclick="cls('cm')">✕</button>
+<h3>📧 מייל סיכום לילה — Kids Sleep Guardian</h3>
+<div class="email-preview">
+<div style="background:linear-gradient(135deg,#2d3436,#636e72);color:white;padding:25px;text-align:center"><h2 style="margin:0;font-size:22px">🌙 סיכום לילה — חדר ילדים</h2><p style="margin:8px 0 0;opacity:0.9">20/05/2026 | 21:00 - 07:00</p></div>
+<div style="padding:25px;color:#333;line-height:1.7">
+<div style="background:#e8f5e9;padding:15px;border-radius:8px;margin-bottom:20px;border-right:4px solid #4caf50"><p style="margin:0;font-weight:bold;color:#2e7d32">✅ לילה תקין — 10 בדיקות בוצעו</p></div>
+<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#f5f5f5"><th style="padding:8px;text-align:right">שעה</th><th style="padding:8px;text-align:right">טמפ' חוץ</th><th style="padding:8px;text-align:right">פעולה</th></tr></thead><tbody>
+<tr><td style="padding:6px 8px;border-bottom:1px solid #eee">21:00</td><td style="padding:6px 8px;border-bottom:1px solid #eee">24°C</td><td style="padding:6px 8px;border-bottom:1px solid #eee">🟢 ON</td></tr>
+<tr><td style="padding:6px 8px;border-bottom:1px solid #eee">22:00</td><td style="padding:6px 8px;border-bottom:1px solid #eee">22°C</td><td style="padding:6px 8px;border-bottom:1px solid #eee">🟢 ON</td></tr>
+<tr><td style="padding:6px 8px;border-bottom:1px solid #eee">23:00</td><td style="padding:6px 8px;border-bottom:1px solid #eee">19°C</td><td style="padding:6px 8px;border-bottom:1px solid #eee">🟢 ON</td></tr>
+<tr><td style="padding:6px 8px;border-bottom:1px solid #eee">00:00</td><td style="padding:6px 8px;border-bottom:1px solid #eee">17°C</td><td style="padding:6px 8px;border-bottom:1px solid #eee">🟢 ON</td></tr>
+<tr style="background:#fff3e0"><td style="padding:6px 8px;border-bottom:1px solid #eee">01:00</td><td style="padding:6px 8px;border-bottom:1px solid #eee">16°C</td><td style="padding:6px 8px;border-bottom:1px solid #eee">🔴 OFF</td></tr>
+<tr><td style="padding:6px 8px;border-bottom:1px solid #eee">02:00</td><td style="padding:6px 8px;border-bottom:1px solid #eee">15°C</td><td style="padding:6px 8px;border-bottom:1px solid #eee">🔴 OFF</td></tr>
+<tr><td style="padding:6px 8px;border-bottom:1px solid #eee">03:00</td><td style="padding:6px 8px;border-bottom:1px solid #eee">14°C</td><td style="padding:6px 8px;border-bottom:1px solid #eee">🔴 OFF</td></tr>
+<tr><td style="padding:6px 8px;border-bottom:1px solid #eee">04:00</td><td style="padding:6px 8px;border-bottom:1px solid #eee">14°C</td><td style="padding:6px 8px;border-bottom:1px solid #eee">🔴 OFF</td></tr>
+<tr><td style="padding:6px 8px;border-bottom:1px solid #eee">05:00</td><td style="padding:6px 8px;border-bottom:1px solid #eee">15°C</td><td style="padding:6px 8px;border-bottom:1px solid #eee">🔴 OFF</td></tr>
+<tr><td style="padding:6px 8px;border-bottom:1px solid #eee">06:00</td><td style="padding:6px 8px;border-bottom:1px solid #eee">16°C</td><td style="padding:6px 8px;border-bottom:1px solid #eee">🔴 OFF</td></tr>
+</tbody></table>
+<p style="margin-top:15px;font-size:13px;color:#777">מזגן כובה ב-01:00 כשהטמפרטורה ירדה מתחת ל-17°C. חיסכון של 6 שעות הפעלה.</p>
+</div>
+<div style="background:#f8f9fa;padding:12px;text-align:center;font-size:11px;color:#999">AI Kids Sleep Guardian | n8n</div>
+</div></div></div>
+
+<script>
+function go(i){document.querySelectorAll('.slide').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.slide')[i].classList.add('active');document.querySelectorAll('.nav-btn')[i].classList.add('active')}
+function pop(id){document.getElementById('m-'+id).classList.add('open')}
+function cls(id){document.getElementById('m-'+id).classList.remove('open')}
+document.querySelectorAll('.ov').forEach(o=>{o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')})});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.ov').forEach(o=>o.classList.remove('open'))});
+</script>
+</body></html>

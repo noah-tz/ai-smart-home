@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  n8n-automation:
+    image: n8nio/n8n:latest
+    container_name: n8n-automation
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - GENERIC_TIMEZONE=Asia/Jerusalem
+      - TZ=Asia/Jerusalem
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://${N8N_HOST}/
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
+      - N8N_RESTRICT_ENVIRONMENT_VARIABLES_ACCESS=false
+      - NODE_FUNCTION_ALLOW_BUILTIN=crypto,fs,path,fs
+      - N8N_RUNNERS_ENABLED=false
+    ports:
+      - "5678:5678"
+    volumes:
+      - ./data:/home/node/.n8n
+      - ./config.json:/config/config.json:ro
+    networks:
+      - web-proxy
+    depends_on:
+      - gmail-relay
+
+  gmail-relay:
+    build: ./gmail-relay
+    container_name: gmail-relay
+    restart: always
+    volumes:
+      - ./gmail-relay/config:/config
+    networks:
+      - web-proxy
+
+networks:
+  web-proxy:
+    external: true

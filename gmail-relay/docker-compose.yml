@@ -1,0 +1,9 @@
+services:
+  gmail-relay:
+    build: .
+    container_name: gmail-relay
+    ports:
+      - "2525:2525"
+    volumes:
+      - ./config:/config
+    restart: always

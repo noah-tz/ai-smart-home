@@ -1,0 +1,208 @@
+{
+  "name": "AI Shabbat Day Manager",
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Jerusalem"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 11,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "cron-shabbat-day",
+      "name": "Daily 11:00 Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Load project configuration from file\nconst fs = require('fs');\nconst config = JSON.parse(fs.readFileSync('/home/node/.n8n/config.json', 'utf8'));\nreturn [{ json: config }];\n"
+      },
+      "id": "load-config-day",
+      "name": "Load Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if today is Yom Kodesh (Shabbat or Chag)\n// Also check if there's a transition to Chol at sunset today\nconst config = $('Load Config').first().json;\nconst LAT = config.settings.LATITUDE;\nconst LON = config.settings.LONGITUDE;\n\nconst today = new Date();\nconst dateStr = today.toISOString().slice(0, 10);\nconst tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);\nconst tomorrowStr = tomorrow.toISOString().slice(0, 10);\n\n// Get Hebcal data\nconst url = `https://www.hebcal.com/shabbat?cfg=json&latitude=${LAT}&longitude=${LON}&M=on&b=18`;\n\nconst response = await this.helpers.httpRequest({\n  method: 'GET',\n  url: url,\n  json: true\n});\n\n// Determine if today is Kodesh\n// Today is Kodesh if:\n// - It's Saturday (day 6)\n// - Or there was candle lighting yesterday (holiday)\n// - Or Hebcal shows havdalah for today\n\nlet isYomKodesh = (today.getDay() === 6); // Saturday\nlet havdalahToday = null;\nlet candleLightingToday = null;\nlet transitionToChol = false;\n\nfor (const item of response.items || []) {\n  const itemDate = item.date ? item.date.slice(0, 10) : '';\n\n  // If havdalah is today, there's a transition to Chol\n  if (item.category === 'havdalah' && itemDate === dateStr) {\n    havdalahToday = item.date;\n    transitionToChol = true;\n  }\n\n  // If candle lighting was yesterday or today is between candles and havdalah\n  if (item.category === 'candles' && itemDate === dateStr) {\n    candleLightingToday = item.date;\n    // If there's candle lighting today, it means today is also erev (handled by other workflow)\n  }\n}\n\n// Also check: if today is Saturday, it's definitely Kodesh\n// If today is a holiday (check Hebrew calendar)\nconst hebcalCalUrl = `https://www.hebcal.com/hebcal?v=1&cfg=json&year=now&month=now&maj=on&min=off&mod=off&nx=off&ss=off&mf=off&c=off&geo=pos&latitude=${LAT}&longitude=${LON}`;\n\nconst calResponse = await this.helpers.httpRequest({\n  method: 'GET',\n  url: hebcalCalUrl,\n  json: true\n});\n\n// Check if today is a Yom Tov\nfor (const item of calResponse.items || []) {\n  const itemDate = item.date ? item.date.slice(0, 10) : '';\n  if (itemDate === dateStr && item.yomtov === true) {\n    isYomKodesh = true;\n  }\n}\n\nconst month = today.getMonth() + 1;\nconst isSummerMonth = config.settings.SUMMER_MONTHS.includes(month);\n\n// Get sunset time for today (from Hebcal zmanim)\nconst zmanimUrl = `https://www.hebcal.com/zmanim?cfg=json&latitude=${LAT}&longitude=${LON}&date=${dateStr}`;\nconst zmanimResp = await this.helpers.httpRequest({\n  method: 'GET',\n  url: zmanimUrl,\n  json: true\n});\nconst sunset = zmanimResp.times?.sunset || null;\n\nreturn [{\n  json: {\n    isYomKodesh,\n    transitionToChol,\n    havdalahToday,\n    sunset,\n    isSummerMonth,\n    month,\n    dateStr\n  }\n}];\n"
+      },
+      "id": "check-kodesh",
+      "name": "Check Yom Kodesh",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "is-kodesh",
+              "leftValue": "={{$json.isYomKodesh}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-kodesh",
+      "name": "Is Yom Kodesh?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get weather forecast for the next 36 hours from Tomorrow.io\nconst config = $('Load Config').first().json;\nconst LAT = config.settings.LATITUDE;\nconst LON = config.settings.LONGITUDE;\nconst API_KEY = config.secrets.TOMORROW_IO_KEY;\n\nconst url = `https://api.tomorrow.io/v4/weather/forecast?location=${LAT},${LON}&timesteps=1h&apikey=${API_KEY}`;\n\nconst response = await this.helpers.httpRequest({\n  method: 'GET',\n  url: url,\n  json: true\n});\n\n// Extract relevant hourly data for the next 36 hours\nconst hourly = (response.timelines?.hourly || []).slice(0, 36).map(h => ({\n  time: h.time,\n  temperature: h.values?.temperature,\n  humidity: h.values?.humidity,\n  cloudCover: h.values?.cloudCover,\n  weatherCode: h.values?.weatherCode\n}));\n\n// Calculate max temperature for today/tomorrow\nconst maxTemp = Math.max(...hourly.map(h => h.temperature || 0));\n\nreturn [{\n  json: {\n    forecast: hourly,\n    maxTemp,\n    currentTemp: hourly[0]?.temperature || null\n  }\n}];\n"
+      },
+      "id": "get-weather-day",
+      "name": "Get Weather Forecast",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// AI Yom Kodesh Steward - Manages Shabbat/Chag day schedule\n// Runs at 11:00 on Shabbat/Chag to manage daytime actions\nconst config = $('Load Config').first().json;\nconst kodeshData = $('Check Yom Kodesh').first().json;\nconst weatherData = $('Get Weather Forecast').first().json;\n\nconst GEMINI_KEY = config.secrets.GEMINI_API_KEY;\nconst devices = config.devices;\n\nconst prompt = `You are the \"AI Shabbat Day Steward,\" managing a smart home DURING Shabbat/Chag.\nIt is currently Yom Kodesh (Shabbat or Holiday). You must plan the remaining actions for today.\n\nIMPORTANT: All actions were pre-scheduled before Shabbat. You are now executing the DAYTIME portion.\nNo new halachic issues - these are pre-programmed timers running automatically.\n\nAvailable smart entities:\n- Living Room ACs (2 units: ID=\"${devices.AC_LIVING_1}\" and ID=\"${devices.AC_LIVING_2}\")\n- Bedroom AC (ID=\"${devices.AC_BEDROOM}\")\n- Kids Room AC (ID=\"${devices.AC_KIDS}\")\n- Kitchen AC (ID=\"${devices.AC_KITCHEN}\")\n- Mini-Bar Plug (ID=\"${devices.MINI_BAR}\" - code \"switch_1\")\n- Living Room Shutters (Left=\"${devices.SHUTTER_LEFT}\", Right=\"${devices.SHUTTER_RIGHT}\")\n\nContext:\n- Today: ${kodeshData.dateStr}\n- Is Yom Kodesh: ${kodeshData.isYomKodesh}\n- Transition to Chol today: ${kodeshData.transitionToChol}\n- Havdalah time: ${kodeshData.havdalahToday || 'No havdalah today (multi-day chag)'}\n- Sunset: ${kodeshData.sunset}\n- Is Summer: ${kodeshData.isSummerMonth}\n- Month: ${kodeshData.month}\n- Weather forecast: ${JSON.stringify(weatherData.forecast.slice(0, 12))}\n- Max Temperature: ${weatherData.maxTemp}°C\n- Current Temperature: ${weatherData.currentTemp}°C\n\nRULES:\n1. Turn OFF bedroom/kids ACs at 11:00 (they ran all night).\n2. Kitchen AC ON at 11:30, OFF at 12:00 (pre-lunch cooling).\n3. Living room ACs ON 12:00-14:00 for Shabbat lunch (summer + hot only).\n4. Bedroom AC ON 14:00 until sunset (always in summer for afternoon rest).\n5. Kids AC ON 14:00 until sunset (only if temp > 20°C).\n6. If transition to Chol (havdalah today): Turn ON Mini-Bar at havdalah time.\n7. Shutters: Adjust based on sun position and heat.\n8. Skip AC actions if NOT summer month (5-10) or temperature < 20°C (except bedroom which is always on in summer).\n\nOutput ONLY valid JSON:\n{\n  \"reasoning_summary\": \"Brief Hebrew summary of today's plan\",\n  \"schedule\": [\n    {\n      \"time\": \"YYYY-MM-DDTHH:MM:SS+03:00\",\n      \"deviceId\": \"tuya_device_id\",\n      \"entity\": \"entity_name\",\n      \"action\": \"ON/OFF/SET\",\n      \"commands\": [{\"code\": \"command_code\", \"value\": \"value\"}],\n      \"explanation\": \"Why (in Hebrew)\"\n    }\n  ]\n}`;\n\nconst payload = {\n  contents: [{ role: \"user\", parts: [{ text: prompt }] }],\n  generationConfig: {\n    responseMimeType: \"application/json\",\n    responseSchema: {\n      type: \"object\",\n      properties: {\n        reasoning_summary: { type: \"string\" },\n        schedule: {\n          type: \"array\",\n          items: {\n            type: \"object\",\n            properties: {\n              time: { type: \"string\" },\n              deviceId: { type: \"string\" },\n              entity: { type: \"string\" },\n              action: { type: \"string\" },\n              commands: {\n                type: \"array\",\n                items: {\n                  type: \"object\",\n                  properties: {\n                    code: { type: \"string\" },\n                    value: {}\n                  }\n                }\n              },\n              explanation: { type: \"string\" }\n            },\n            required: [\"time\", \"deviceId\", \"entity\", \"action\", \"commands\", \"explanation\"]\n          }\n        }\n      },\n      required: [\"reasoning_summary\", \"schedule\"]\n    }\n  }\n};\n\nconst url = \"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\" + GEMINI_KEY;\n\ntry {\n  const response = await this.helpers.httpRequest({\n    method: 'POST',\n    url: url,\n    body: payload,\n    json: true,\n    headers: { 'Content-Type': 'application/json' }\n  });\n\n  const text = response.candidates[0].content.parts[0].text;\n  const cleaned = text.replace(/```json|```/g, '').trim();\n  const result = JSON.parse(cleaned);\n\n  return [{ json: result }];\n} catch (e) {\n  return [{ json: {\n    reasoning_summary: \"שגיאה בקבלת תשובה מ-AI\",\n    schedule: [],\n    error: e.message\n  }}];\n}\n"
+      },
+      "id": "ai-kodesh",
+      "name": "AI Yom Kodesh Steward",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Execute scheduled Tuya commands at the right times\n// This node receives a schedule array and executes commands that are due NOW\nconst crypto = require('crypto');\nconst config = $('Load Config').first().json;\nconst scheduleData = $input.first().json;\n\nconst TUYA_ACCESS_ID = config.secrets.TUYA_ACCESS_ID;\nconst TUYA_ACCESS_SECRET = config.secrets.TUYA_ACCESS_SECRET;\nconst API_URL = 'https://openapi.tuyaeu.com';\n\n// Get Tuya token\nasync function getTuyaToken() {\n  const timestamp = Date.now().toString();\n  const path = '/v1.0/token?grant_type=1';\n  const contentHash = crypto.createHash('sha256').update('').digest('hex');\n  const stringToSign = 'GET\\n' + contentHash + '\\n\\n' + path;\n  const str = TUYA_ACCESS_ID + timestamp + stringToSign;\n  const sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET).update(str).digest('hex').toUpperCase();\n\n  const response = await this.helpers.httpRequest({\n    method: 'GET',\n    url: API_URL + path,\n    headers: { 't': timestamp, 'sign': sign, 'client_id': TUYA_ACCESS_ID, 'sign_method': 'HMAC-SHA256' },\n    json: true\n  });\n\n  return response.result.access_token;\n}\n\n// Send command to device\nasync function sendCommand(token, deviceId, commands) {\n  const timestamp = Date.now().toString();\n  const path = '/v1.0/devices/' + deviceId + '/commands';\n  const body = JSON.stringify({ commands });\n\n  const contentHash = crypto.createHash('sha256').update(body).digest('hex');\n  const stringToSign = 'POST\\n' + contentHash + '\\n\\n' + path;\n  const str = TUYA_ACCESS_ID + token + timestamp + stringToSign;\n  const sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET).update(str).digest('hex').toUpperCase();\n\n  const response = await this.helpers.httpRequest({\n    method: 'POST',\n    url: API_URL + path,\n    headers: {\n      't': timestamp, 'sign': sign, 'client_id': TUYA_ACCESS_ID,\n      'sign_method': 'HMAC-SHA256', 'access_token': token,\n      'Content-Type': 'application/json'\n    },\n    body: body,\n    json: true\n  });\n\n  return response;\n}\n\n// Filter actions that should execute NOW (within 2 minute window)\nconst now = Date.now();\nconst WINDOW_MS = 2 * 60 * 1000; // 2 minutes\n\nconst dueActions = scheduleData.schedule.filter(action => {\n  const actionTime = new Date(action.time).getTime();\n  return Math.abs(actionTime - now) <= WINDOW_MS;\n});\n\nif (dueActions.length === 0) {\n  return [{ json: { executed: 0, message: 'No actions due at this time' } }];\n}\n\n// Execute due actions\nconst token = await getTuyaToken.call(this);\nconst results = [];\n\nfor (const action of dueActions) {\n  try {\n    const result = await sendCommand.call(this, token, action.deviceId, action.commands);\n    results.push({\n      entity: action.entity,\n      action: action.action,\n      success: result.success,\n      time: action.time\n    });\n  } catch (e) {\n    results.push({\n      entity: action.entity,\n      action: action.action,\n      success: false,\n      error: e.message,\n      time: action.time\n    });\n  }\n}\n\nreturn [{ json: { executed: results.length, results } }];\n"
+      },
+      "id": "execute-kodesh",
+      "name": "Execute Shabbat Actions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Not Yom Kodesh - skip\nreturn [{ json: { message: 'Not Yom Kodesh today, skipping.' } }];"
+      },
+      "id": "skip-kodesh",
+      "name": "Not Kodesh - Skip",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Daily 11:00 Check": {
+      "main": [
+        [
+          {
+            "node": "Load Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Config": {
+      "main": [
+        [
+          {
+            "node": "Check Yom Kodesh",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Yom Kodesh": {
+      "main": [
+        [
+          {
+            "node": "Is Yom Kodesh?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Yom Kodesh?": {
+      "main": [
+        [
+          {
+            "node": "Get Weather Forecast",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not Kodesh - Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Weather Forecast": {
+      "main": [
+        [
+          {
+            "node": "AI Yom Kodesh Steward",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Yom Kodesh Steward": {
+      "main": [
+        [
+          {
+            "node": "Execute Shabbat Actions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

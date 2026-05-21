@@ -1,0 +1,21 @@
+# Environment & secrets
+automation/.env
+automation/gmail-relay/config/credentials.json
+automation/gmail-relay/config/token.json
+
+# Personal config (coordinates, email, device IDs)
+automation/config.json
+config.json
+
+# n8n data (database, logs)
+automation/data/
+
+# Node modules
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/

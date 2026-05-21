@@ -1,0 +1,524 @@
+{
+  "name": "AI Weather Blinds Control",
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Jerusalem",
+    "binaryMode": "separate"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "url": "=https://www.hebcal.com/zmanim?cfg=json&latitude={{$json.settings.LATITUDE}}&longitude={{$json.settings.LONGITUDE}}&date={{$now.format('yyyy-MM-dd')}}",
+        "options": {}
+      },
+      "id": "http-hebcal",
+      "name": "Get Chatzot Time (Hebcal)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate wait time until Chatzot (Halachic Noon)\nconst hebcalData = $input.first().json;\nconst chatzotISO = hebcalData.times.chatzot;\n\nif (!chatzotISO) {\n  // Fallback to 12:00 if API fails\n  const now = new Date();\n  now.setHours(12, 0, 0, 0);\n  return [{\n    json: {\n      chatzotTime: now.toISOString(),\n      waitSeconds: Math.max(0, (now.getTime() - Date.now()) / 1000)\n    }\n  }];\n}\n\nconst chatzotDate = new Date(chatzotISO);\nconst waitMs = chatzotDate.getTime() - Date.now();\nconst waitSeconds = Math.max(0, Math.floor(waitMs / 1000));\n\nreturn [{\n  json: {\n    chatzotTime: chatzotISO,\n    waitSeconds\n  }\n}];\n"
+      },
+      "id": "code-calc-wait",
+      "name": "Calculate Wait Until Chatzot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "amount": "={{$json.waitSeconds}}"
+      },
+      "id": "wait-chatzot",
+      "name": "Wait Until Chatzot",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        0
+      ],
+      "webhookId": "6959c6b7-870f-452d-95e7-beeb520f97ac",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "https://api.ims.gov.il/v1/envista/stations",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=ApiToken {{$('Load Config').first().json.secrets.IMS_API_TOKEN}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-ims-stations",
+      "name": "Get IMS Stations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Find nearest IMS stations with radiation sensor capability\nconst items = $input.all();\nconst stations = items.map(item => item.json);\n\n// Get config from Load Config node\nconst config = $('Load Config').first().json;\nconst LATITUDE = config.settings.LATITUDE;\nconst LONGITUDE = config.settings.LONGITUDE;\n\n// Filter stations with valid location data\nconst validStations = stations.filter(s => \n  s.location && s.location.latitude != null && s.location.longitude != null\n);\n\n// Sort by Euclidean distance from home coordinates\nconst sorted = validStations.map(s => {\n  const dist = Math.sqrt(\n    Math.pow(s.location.latitude - LATITUDE, 2) +\n    Math.pow(s.location.longitude - LONGITUDE, 2)\n  );\n  return { station: s, distance: dist };\n}).sort((a, b) => a.distance - b.distance);\n\n// Return top 30 candidates\nconst candidates = sorted.slice(0, 30).map(s => ({\n  stationId: s.station.stationId,\n  name: s.station.name,\n  distance: s.distance\n}));\n\nreturn [{ json: { candidates } }];"
+      },
+      "id": "code-find-station",
+      "name": "Find Nearest Stations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fetch weather data from nearest IMS station with radiation sensor\nconst candidates = $input.first().json.candidates;\nconst config = $('Load Config').first().json;\nconst IMS_TOKEN = config.secrets.IMS_API_TOKEN;\n\nconst now = new Date();\nconst twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);\n\n// Format dates for IMS API (Israel Summer Time GMT+3)\nfunction formatDate(d) {\n  const offset = 3;\n  const local = new Date(d.getTime() + offset * 60 * 60 * 1000);\n  const iso = local.toISOString();\n  const year = iso.slice(0,4);\n  const month = iso.slice(5,7);\n  const day = iso.slice(8,10);\n  const time = iso.slice(11,16);\n  return year + '/' + month + '/' + day + ' ' + time;\n}\n\nconst fromStr = encodeURIComponent(formatDate(twoHoursAgo));\nconst toStr = encodeURIComponent(formatDate(now));\n\nfor (const candidate of candidates) {\n  try {\n    const url = 'https://api.ims.gov.il/v1/envista/stations/' + candidate.stationId + '/data/?from=' + fromStr + '&to=' + toStr;\n\n    const response = await this.helpers.httpRequest({\n      method: 'GET',\n      url: url,\n      headers: { 'Authorization': 'ApiToken ' + IMS_TOKEN },\n      json: true\n    });\n\n    if (response && response.data && response.data.length > 0) {\n      const latestPoint = response.data[response.data.length - 1];\n      const hasGrad = latestPoint.channels.some(\n        c => c.name === 'Grad' && c.value !== null\n      );\n\n      if (hasGrad) {\n        const dataPoints = response.data.map(item => {\n          const result = {\n            datetime: item.datetime,\n            rain: null,\n            humidity: null,\n            globalRadiation: null,\n            temperature: null\n          };\n\n          item.channels.forEach(c => {\n            if (c.status === 1) {\n              if (c.name === 'Rain') result.rain = c.value;\n              if (c.name === 'RH') result.humidity = c.value;\n              if (c.name === 'Grad') result.globalRadiation = c.value;\n              if (c.name === 'TD') result.temperature = c.value;\n            }\n          });\n\n          return result;\n        });\n\n        return [{\n          json: {\n            stationId: candidate.stationId,\n            stationName: candidate.name,\n            dataPoints,\n            success: true\n          }\n        }];\n      }\n    }\n  } catch (e) {\n    continue;\n  }\n}\n\nreturn [{\n  json: {\n    success: false,\n    reason: 'No station with radiation sensor found'\n  }\n}];"
+      },
+      "id": "code-fetch-weather",
+      "name": "Fetch Weather Data (IMS)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "weather-check",
+              "leftValue": "={{$json.success}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-weather-ok",
+      "name": "Weather Data OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cloudy-check",
+              "leftValue": "={{$json.isCloudy}}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-sunny",
+      "name": "Is Sunny & Warm?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2208,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get Tuya access token using HMAC-SHA256 signature\nconst crypto = require('crypto');\n\nconst config = $('Load Config').first().json;\nconst TUYA_ACCESS_ID = config.secrets.TUYA_ACCESS_ID;\nconst TUYA_ACCESS_SECRET = config.secrets.TUYA_ACCESS_SECRET;\nconst API_URL = 'https://openapi.tuyaeu.com';\n\nconst timestamp = Date.now().toString();\nconst path = '/v1.0/token?grant_type=1';\n\n// Calculate signature (no token for auth request)\nconst contentHash = crypto.createHash('sha256').update('').digest('hex');\nconst stringToSign = 'GET\\n' + contentHash + '\\n\\n' + path;\nconst str = TUYA_ACCESS_ID + timestamp + stringToSign;\nconst sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET).update(str).digest('hex').toUpperCase();\n\nconst response = await this.helpers.httpRequest({\n  method: 'GET',\n  url: API_URL + path,\n  headers: {\n    't': timestamp,\n    'sign': sign,\n    'client_id': TUYA_ACCESS_ID,\n    'sign_method': 'HMAC-SHA256'\n  },\n  json: true\n});\n\nif (response.success && response.result && response.result.access_token) {\n  return [{ json: { token: response.result.access_token } }];\n} else {\n  throw new Error('Failed to get Tuya token: ' + JSON.stringify(response));\n}"
+      },
+      "id": "code-tuya-token",
+      "name": "Get Tuya Token",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2432,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Close both Tuya blinds using signed API requests\nconst crypto = require('crypto');\n\nconst config = $('Load Config').first().json;\nconst TUYA_ACCESS_ID = config.secrets.TUYA_ACCESS_ID;\nconst TUYA_ACCESS_SECRET = config.secrets.TUYA_ACCESS_SECRET;\nconst API_URL = 'https://openapi.tuyaeu.com';\nconst token = $input.first().json.token;\n\nconst BLINDS = [\n  config.secrets.BLINDS_RIGHT,\n  config.secrets.BLINDS_LEFT\n];\n\nconst results = [];\n\nfor (const deviceId of BLINDS) {\n  const timestamp = Date.now().toString();\n  const path = '/v1.0/devices/' + deviceId + '/commands';\n  const body = JSON.stringify({ commands: [{ code: 'control', value: 'close' }] });\n\n  const contentHash = crypto.createHash('sha256').update(body).digest('hex');\n  const stringToSign = 'POST\\n' + contentHash + '\\n\\n' + path;\n  const str = TUYA_ACCESS_ID + token + timestamp + stringToSign;\n  const sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET).update(str).digest('hex').toUpperCase();\n\n  const response = await this.helpers.httpRequest({\n    method: 'POST',\n    url: API_URL + path,\n    headers: {\n      't': timestamp,\n      'sign': sign,\n      'client_id': TUYA_ACCESS_ID,\n      'sign_method': 'HMAC-SHA256',\n      'access_token': token,\n      'Content-Type': 'application/json'\n    },\n    body: body,\n    json: true\n  });\n\n  results.push({ deviceId, success: response.success, result: response });\n}\n\nreturn [{ json: { blindsResults: results } }];"
+      },
+      "id": "code-tuya-close",
+      "name": "Close Tuya Blinds",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare HTML email with blinds status report\nconst inputData = $input.first().json;\nconst isCloudy = inputData.isCloudy;\nconst reason = inputData.reason;\n\nconst statusColor = isCloudy ? \"#3498db\" : \"#e67e22\";\nconst statusText = isCloudy ? \"התריסים נשארים פתוחים\" : \"התריסים נסגרים כעת\";\nconst icon = isCloudy ? \"☁️\" : \"☀️\";\n\nconst htmlBody = `\n<div style=\"direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1);\">\n  <div style=\"background-color: ${statusColor}; color: white; padding: 20px; text-align: center;\">\n    <h1 style=\"margin: 0; font-size: 24px;\">${icon} ${statusText}</h1>\n  </div>\n  <div style=\"padding: 30px; line-height: 1.6; color: #333;\">\n    <p style=\"font-size: 18px; font-weight: bold; margin-bottom: 10px;\">ניתוח המערכת:</p>\n    <div style=\"background-color: #f9f9f9; padding: 15px; border-right: 5px solid ${statusColor}; border-radius: 4px; margin-bottom: 20px; font-style: italic;\">\n      ${reason}\n    </div>\n    <p style=\"font-size: 14px; color: #777;\">\n      ההחלטה התקבלה על ידי בינה מלאכותית בהתבסס על נתוני השירות המטאורולוגי ב-2 השעות האחרונות.\n    </p>\n  </div>\n  <div style=\"background-color: #f1f1f1; padding: 10px; text-align: center; font-size: 12px; color: #999;\">\n    AI Weather Automation System | n8n\n  </div>\n</div>\n`;\n\nreturn [{\n  json: {\n    to: $('Load Config').first().json.settings.NOTIFICATION_EMAIL,\n    subject: \"עדכון מצב תריסים יומי - AI Weather\",\n    html: htmlBody,\n    isCloudy,\n    reason\n  }\n}];"
+      },
+      "id": "code-email-prep",
+      "name": "Prepare Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "your@email.com",
+        "toEmail": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "html": "={{$json.html}}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "send-email",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2864,
+        112
+      ],
+      "webhookId": "44cfd68c-f395-43b0-a37c-151a56ba220b",
+      "credentials": {
+        "smtp": {
+          "id": "ryZJ2VT9HAAZoS3d",
+          "name": "Gmail Relay SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Weather data failed - default to safe mode (keep blinds open)\nreturn [{\n  json: {\n    isCloudy: true,\n    reason: 'לא ניתן היה לקבל נתוני מזג אוויר מהשירות המטאורולוגי. התריסים יישארו פתוחים ליתר ביטחון.'\n  }\n}];\n"
+      },
+      "id": "code-weather-fail",
+      "name": "Default: Keep Open (Safe)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 2
+            }
+          ]
+        }
+      },
+      "id": "cron-daily",
+      "name": "Daily 11:00 Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the AI prompt from weather data\nconst config = $('Load Config').first().json;\nconst COLD = config.settings.COLD_THRESHOLD_CELSIUS;\nconst CLOUDY_PCT = config.settings.CLOUDY_THRESHOLD_PERCENT;\nconst MIN_RAD = config.settings.MIN_RADIATION_WM2;\nconst weatherData = $input.first().json;\n\nconst prompt = \"Analyze the following IMS weather data from the last 2 hours (10-minute intervals): \" + JSON.stringify(weatherData) +\n  \".\\n\\nYour task is to decide if the blinds should remain OPEN (isCloudy: true) or CLOSE (isCloudy: false).\" +\n  \"\\n\\nData Context:\" +\n  \"\\n- 'globalRadiation' is measured in W/m^2. Values \" + MIN_RAD + \" W/m^2 during daytime indicate cloudy conditions.\" +\n  \"\\n- 'rain' > 0 indicates active rain.\" +\n  \"\\n\\nRules:\" +\n  \"\\n1. For each interval, determine if it is 'cloudy/rainy' (globalRadiation < 400 OR rain > 0) or 'sunny'.\" +\n  \"\\n2. If \" + CLOUDY_PCT + \"% of the intervals were 'cloudy/rainy', return isCloudy: true.\" +\n  \"\\n3. If it is currently sunny but it's a COLD day (temperature \" + COLD + \"\\u00b0C), return isCloudy: true.\" +\n  \"\\n4. Only return isCloudy: false if it is sunny AND the temperature is comfortably warm (\" + COLD + \"\\u00b0C or above).\" +\n  \"\\n5. Provide a detailed and clear reason for your decision in Hebrew.\\n\\nReturn JSON: {\\\"isCloudy\\\": boolean, \\\"reason\\\": string}\";\n\nconst payload = {\n  contents: [{ role: \"user\", parts: [{ text: prompt }] }],\n  generationConfig: {\n    responseMimeType: \"application/json\",\n    responseSchema: {\n      type: \"object\",\n      properties: {\n        isCloudy: { type: \"boolean\" },\n        reason: { type: \"string\" }\n      },\n      required: [\"isCloudy\", \"reason\"]\n    }\n  }\n};\n\nreturn [{ json: payload }];"
+      },
+      "id": "code-build-prompt",
+      "name": "Build AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={{$('Load Config').first().json.secrets.GEMINI_API_KEY}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "http-gemini",
+      "name": "Gemini 2.5 Flash",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1984,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Gemini AI response\nconst response = $input.first().json;\n\ntry {\n  const text = response.candidates[0].content.parts[0].text;\n  const cleaned = text.replace(/```json|```/g, '').trim();\n  const result = JSON.parse(cleaned);\n  return [{ json: { isCloudy: result.isCloudy, reason: result.reason } }];\n} catch (e) {\n  return [{ json: { isCloudy: true, reason: 'שגיאה בפענוח תשובת AI. התריסים יישארו פתוחים ליתר ביטחון.' } }];\n}"
+      },
+      "id": "code-parse-ai",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2208,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Load project configuration from file\nconst fs = require('fs');\nconst config = JSON.parse(fs.readFileSync('/home/node/.n8n/config.json', 'utf8'));\nreturn [{ json: config }];"
+      },
+      "id": "code-load-config",
+      "name": "Load Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        110,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Get Chatzot Time (Hebcal)": {
+      "main": [
+        [
+          {
+            "node": "Calculate Wait Until Chatzot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Wait Until Chatzot": {
+      "main": [
+        [
+          {
+            "node": "Wait Until Chatzot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Until Chatzot": {
+      "main": [
+        [
+          {
+            "node": "Get IMS Stations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get IMS Stations": {
+      "main": [
+        [
+          {
+            "node": "Find Nearest Stations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Nearest Stations": {
+      "main": [
+        [
+          {
+            "node": "Fetch Weather Data (IMS)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Weather Data (IMS)": {
+      "main": [
+        [
+          {
+            "node": "Weather Data OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weather Data OK?": {
+      "main": [
+        [
+          {
+            "node": "Build AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Default: Keep Open (Safe)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Sunny & Warm?": {
+      "main": [
+        [
+          {
+            "node": "Get Tuya Token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Tuya Token": {
+      "main": [
+        [
+          {
+            "node": "Close Tuya Blinds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Close Tuya Blinds": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default: Keep Open (Safe)": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily 11:00 Trigger": {
+      "main": [
+        [
+          {
+            "node": "Load Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini 2.5 Flash",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.5 Flash": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Is Sunny & Warm?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Config": {
+      "main": [
+        [
+          {
+            "node": "Get Chatzot Time (Hebcal)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

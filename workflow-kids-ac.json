@@ -1,0 +1,95 @@
+{
+  "name": "AI Kids Sleep Climate Guardian",
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Jerusalem"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 21,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 22,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 23,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 0,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 1,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 2,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 3,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 4,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 5,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 6,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 7,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "cron-kids",
+      "name": "Hourly 21:00-07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// AI Kids' Sleep Climate Guardian\n// Runs every hour 21:00-07:00\n// Summer (months 5-10): AC is on COOL - turn OFF when outdoor temp drops below 17°C\n// Winter (months 11-4): AC is on HEAT - turn ON when outdoor temp drops below 10°C, OFF when above 12°C\nconst fs = require('fs');\nconst crypto = require('crypto');\nconst config = JSON.parse(fs.readFileSync('/home/node/.n8n/config.json', 'utf8'));\n\nconst DEVICE_ID = config.devices.AC_KIDS;\nconst TUYA_ACCESS_ID = config.secrets.TUYA_ACCESS_ID;\nconst TUYA_ACCESS_SECRET = config.secrets.TUYA_ACCESS_SECRET;\nconst API_URL = 'https://openapi.tuyaeu.com';\nconst TOMORROW_KEY = config.secrets.TOMORROW_IO_KEY;\nconst LAT = config.settings.LATITUDE;\nconst LON = config.settings.LONGITUDE;\n\nconst now = new Date();\nconst hour = now.getHours();\nconst month = now.getMonth() + 1;\nconst isSummer = config.settings.SUMMER_MONTHS.includes(month);\n\n// Only run between 21:00-07:00\nif (hour >= 7 && hour < 21) {\n  return [{ json: { action: 'skip', reason: 'Not nighttime (21:00-07:00)', hour } }];\n}\n\n// Get current weather from Tomorrow.io\nconst weatherUrl = `https://api.tomorrow.io/v4/weather/realtime?location=${LAT},${LON}&apikey=${TOMORROW_KEY}`;\nconst weather = await this.helpers.httpRequest({ method: 'GET', url: weatherUrl, json: true });\nconst outdoorTemp = weather.data?.values?.temperature;\n\nif (outdoorTemp === null || outdoorTemp === undefined) {\n  return [{ json: { action: 'error', reason: 'Could not get outdoor temperature' } }];\n}\n\n// Decision logic\nlet shouldBeOn = false;\nlet reason = '';\n\nif (isSummer) {\n  // Summer: AC is on COOL. Turn OFF when outdoor < 17°C (natural cooling sufficient)\n  if (outdoorTemp >= 17) {\n    shouldBeOn = true;\n    reason = `קיץ, טמפרטורה חיצונית ${outdoorTemp}°C (מעל 17°C) - מזגן קירור דולק`;\n  } else {\n    shouldBeOn = false;\n    reason = `קיץ, טמפרטורה חיצונית ${outdoorTemp}°C (מתחת ל-17°C) - מזגן כבוי, קירור טבעי מספיק`;\n  }\n} else {\n  // Winter: AC is on HEAT. Turn ON when outdoor < 10°C, OFF when > 12°C (hysteresis)\n  if (outdoorTemp < 10) {\n    shouldBeOn = true;\n    reason = `חורף, טמפרטורה חיצונית ${outdoorTemp}°C (מתחת ל-10°C) - מזגן חימום דולק`;\n  } else if (outdoorTemp > 12) {\n    shouldBeOn = false;\n    reason = `חורף, טמפרטורה חיצונית ${outdoorTemp}°C (מעל 12°C) - מזגן חימום כבוי`;\n  } else {\n    // Between 10-12: maintain current state (don't toggle)\n    return [{ json: { action: 'maintain', reason: `חורף, טמפרטורה ${outdoorTemp}°C (10-12°C) - שומר מצב קיים`, outdoorTemp } }];\n  }\n}\n\n// Execute Tuya command\nasync function sendTuyaCommand(turnOn) {\n  // Get token\n  const timestamp = Date.now().toString();\n  const tokenPath = '/v1.0/token?grant_type=1';\n  const contentHash = crypto.createHash('sha256').update('').digest('hex');\n  const stringToSign = 'GET\\n' + contentHash + '\\n\\n' + tokenPath;\n  const str = TUYA_ACCESS_ID + timestamp + stringToSign;\n  const sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET).update(str).digest('hex').toUpperCase();\n\n  const tokenResp = await this.helpers.httpRequest({\n    method: 'GET', url: API_URL + tokenPath,\n    headers: { 't': timestamp, 'sign': sign, 'client_id': TUYA_ACCESS_ID, 'sign_method': 'HMAC-SHA256' },\n    json: true\n  });\n  const token = tokenResp.result.access_token;\n\n  // Send command\n  const cmdTimestamp = Date.now().toString();\n  const cmdPath = '/v1.0/devices/' + DEVICE_ID + '/commands';\n  const body = JSON.stringify({ commands: [{ code: 'switch', value: turnOn }] });\n  const cmdContentHash = crypto.createHash('sha256').update(body).digest('hex');\n  const cmdStringToSign = 'POST\\n' + cmdContentHash + '\\n\\n' + cmdPath;\n  const cmdStr = TUYA_ACCESS_ID + token + cmdTimestamp + cmdStringToSign;\n  const cmdSign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET).update(cmdStr).digest('hex').toUpperCase();\n\n  return await this.helpers.httpRequest({\n    method: 'POST', url: API_URL + cmdPath,\n    headers: { 't': cmdTimestamp, 'sign': cmdSign, 'client_id': TUYA_ACCESS_ID, 'sign_method': 'HMAC-SHA256', 'access_token': token, 'Content-Type': 'application/json' },\n    body, json: true\n  });\n}\n\nconst result = await sendTuyaCommand.call(this, shouldBeOn);\n\nreturn [{\n  json: {\n    action: shouldBeOn ? 'ON' : 'OFF',\n    reason,\n    outdoorTemp,\n    isSummer,\n    month,\n    hour,\n    tuyaSuccess: result.success\n  }\n}];\n"
+      },
+      "id": "kids-check",
+      "name": "Check Temp & Control AC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        250,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Hourly 21:00-07:00": {
+      "main": [
+        [
+          {
+            "node": "Check Temp & Control AC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
