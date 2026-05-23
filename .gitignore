@@ -5,7 +5,6 @@ automation/gmail-relay/config/token.json
 
 # Personal config (coordinates, email, device IDs)
 automation/config.json
-config.json
 
 # n8n data (database, logs)
 automation/data/
@@ -16,6 +15,9 @@ node_modules/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Old project (archived)
+OldProject/
 
 # IDE
 .vscode/

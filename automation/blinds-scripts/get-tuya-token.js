@@ -5,6 +5,9 @@ const TUYA_ACCESS_ID = $env.TUYA_ACCESS_ID;
 const TUYA_ACCESS_SECRET = $env.TUYA_ACCESS_SECRET;
 const API_URL = 'https://openapi.tuyaeu.com';
 
+// Preserve AI decision from input for downstream
+const aiInput = $input.first().json;
+
 const timestamp = Date.now().toString();
 const path = '/v1.0/token?grant_type=1';
 
@@ -27,7 +30,7 @@ const response = await this.helpers.httpRequest({
 });
 
 if (response.success && response.result && response.result.access_token) {
-  return [{ json: { token: response.result.access_token } }];
+  return [{ json: { token: response.result.access_token, isCloudy: aiInput.isCloudy, reason: aiInput.reason } }];
 } else {
   throw new Error('Failed to get Tuya token: ' + JSON.stringify(response));
 }

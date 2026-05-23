@@ -165,7 +165,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Get Tuya access token using HMAC-SHA256 signature\nconst crypto = require('crypto');\n\nconst config = $('Load Config').first().json;\nconst TUYA_ACCESS_ID = config.secrets.TUYA_ACCESS_ID;\nconst TUYA_ACCESS_SECRET = config.secrets.TUYA_ACCESS_SECRET;\nconst API_URL = 'https://openapi.tuyaeu.com';\n\nconst timestamp = Date.now().toString();\nconst path = '/v1.0/token?grant_type=1';\n\n// Calculate signature (no token for auth request)\nconst contentHash = crypto.createHash('sha256').update('').digest('hex');\nconst stringToSign = 'GET\\n' + contentHash + '\\n\\n' + path;\nconst str = TUYA_ACCESS_ID + timestamp + stringToSign;\nconst sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET).update(str).digest('hex').toUpperCase();\n\nconst response = await this.helpers.httpRequest({\n  method: 'GET',\n  url: API_URL + path,\n  headers: {\n    't': timestamp,\n    'sign': sign,\n    'client_id': TUYA_ACCESS_ID,\n    'sign_method': 'HMAC-SHA256'\n  },\n  json: true\n});\n\nif (response.success && response.result && response.result.access_token) {\n  return [{ json: { token: response.result.access_token } }];\n} else {\n  throw new Error('Failed to get Tuya token: ' + JSON.stringify(response));\n}"
+        "jsCode": "// Get Tuya access token using HMAC-SHA256 signature\nconst crypto = require('crypto');\n\nconst config = $('Load Config').first().json;\nconst TUYA_ACCESS_ID = config.secrets.TUYA_ACCESS_ID;\nconst TUYA_ACCESS_SECRET = config.secrets.TUYA_ACCESS_SECRET;\nconst API_URL = 'https://openapi.tuyaeu.com';\n\n// Preserve AI decision from input for downstream\nconst aiInput = $input.first().json;\n\nconst timestamp = Date.now().toString();\nconst path = '/v1.0/token?grant_type=1';\n\n// Calculate signature (no token for auth request)\nconst contentHash = crypto.createHash('sha256').update('').digest('hex');\nconst stringToSign = 'GET\\n' + contentHash + '\\n\\n' + path;\nconst str = TUYA_ACCESS_ID + timestamp + stringToSign;\nconst sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET).update(str).digest('hex').toUpperCase();\n\nconst response = await this.helpers.httpRequest({\n  method: 'GET',\n  url: API_URL + path,\n  headers: {\n    't': timestamp,\n    'sign': sign,\n    'client_id': TUYA_ACCESS_ID,\n    'sign_method': 'HMAC-SHA256'\n  },\n  json: true\n});\n\nif (response.success && response.result && response.result.access_token) {\n  return [{ json: { token: response.result.access_token, isCloudy: aiInput.isCloudy, reason: aiInput.reason } }];\n} else {\n  throw new Error('Failed to get Tuya token: ' + JSON.stringify(response));\n}"
       },
       "id": "code-tuya-token",
       "name": "Get Tuya Token",
@@ -178,7 +178,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Close both Tuya blinds using signed API requests\nconst crypto = require('crypto');\n\nconst config = $('Load Config').first().json;\nconst TUYA_ACCESS_ID = config.secrets.TUYA_ACCESS_ID;\nconst TUYA_ACCESS_SECRET = config.secrets.TUYA_ACCESS_SECRET;\nconst API_URL = 'https://openapi.tuyaeu.com';\nconst token = $input.first().json.token;\n\nconst BLINDS = [\n  config.secrets.BLINDS_RIGHT,\n  config.secrets.BLINDS_LEFT\n];\n\nconst results = [];\n\nfor (const deviceId of BLINDS) {\n  const timestamp = Date.now().toString();\n  const path = '/v1.0/devices/' + deviceId + '/commands';\n  const body = JSON.stringify({ commands: [{ code: 'control', value: 'close' }] });\n\n  const contentHash = crypto.createHash('sha256').update(body).digest('hex');\n  const stringToSign = 'POST\\n' + contentHash + '\\n\\n' + path;\n  const str = TUYA_ACCESS_ID + token + timestamp + stringToSign;\n  const sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET).update(str).digest('hex').toUpperCase();\n\n  const response = await this.helpers.httpRequest({\n    method: 'POST',\n    url: API_URL + path,\n    headers: {\n      't': timestamp,\n      'sign': sign,\n      'client_id': TUYA_ACCESS_ID,\n      'sign_method': 'HMAC-SHA256',\n      'access_token': token,\n      'Content-Type': 'application/json'\n    },\n    body: body,\n    json: true\n  });\n\n  results.push({ deviceId, success: response.success, result: response });\n}\n\nreturn [{ json: { blindsResults: results } }];"
+        "jsCode": "// Close both Tuya blinds using signed API requests\nconst crypto = require('crypto');\n\nconst config = $('Load Config').first().json;\nconst TUYA_ACCESS_ID = config.secrets.TUYA_ACCESS_ID;\nconst TUYA_ACCESS_SECRET = config.secrets.TUYA_ACCESS_SECRET;\nconst API_URL = 'https://openapi.tuyaeu.com';\nconst inputJson = $input.first().json;\nconst token = inputJson.token;\n\n// Preserve AI decision data for downstream email node\nconst isCloudy = inputJson.isCloudy;\nconst reason = inputJson.reason;\n\nconst BLINDS = [\n  config.secrets.BLINDS_RIGHT,\n  config.secrets.BLINDS_LEFT\n];\n\nconst results = [];\n\nfor (const deviceId of BLINDS) {\n  const timestamp = Date.now().toString();\n  const path = '/v1.0/devices/' + deviceId + '/commands';\n  const body = JSON.stringify({ commands: [{ code: 'control', value: 'close' }] });\n\n  const contentHash = crypto.createHash('sha256').update(body).digest('hex');\n  const stringToSign = 'POST\\n' + contentHash + '\\n\\n' + path;\n  const str = TUYA_ACCESS_ID + token + timestamp + stringToSign;\n  const sign = crypto.createHmac('sha256', TUYA_ACCESS_SECRET).update(str).digest('hex').toUpperCase();\n\n  const response = await this.helpers.httpRequest({\n    method: 'POST',\n    url: API_URL + path,\n    headers: {\n      't': timestamp,\n      'sign': sign,\n      'client_id': TUYA_ACCESS_ID,\n      'sign_method': 'HMAC-SHA256',\n      'access_token': token,\n      'Content-Type': 'application/json'\n    },\n    body: body,\n    json: true\n  });\n\n  results.push({ deviceId, success: response.success, result: response });\n}\n\nreturn [{ json: { blindsResults: results, isCloudy, reason } }];"
       },
       "id": "code-tuya-close",
       "name": "Close Tuya Blinds",
@@ -191,7 +191,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Prepare HTML email with blinds status report\nconst inputData = $input.first().json;\nconst isCloudy = inputData.isCloudy;\nconst reason = inputData.reason;\n\nconst statusColor = isCloudy ? \"#3498db\" : \"#e67e22\";\nconst statusText = isCloudy ? \"התריסים נשארים פתוחים\" : \"התריסים נסגרים כעת\";\nconst icon = isCloudy ? \"☁️\" : \"☀️\";\n\nconst htmlBody = `\n<div style=\"direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1);\">\n  <div style=\"background-color: ${statusColor}; color: white; padding: 20px; text-align: center;\">\n    <h1 style=\"margin: 0; font-size: 24px;\">${icon} ${statusText}</h1>\n  </div>\n  <div style=\"padding: 30px; line-height: 1.6; color: #333;\">\n    <p style=\"font-size: 18px; font-weight: bold; margin-bottom: 10px;\">ניתוח המערכת:</p>\n    <div style=\"background-color: #f9f9f9; padding: 15px; border-right: 5px solid ${statusColor}; border-radius: 4px; margin-bottom: 20px; font-style: italic;\">\n      ${reason}\n    </div>\n    <p style=\"font-size: 14px; color: #777;\">\n      ההחלטה התקבלה על ידי בינה מלאכותית בהתבסס על נתוני השירות המטאורולוגי ב-2 השעות האחרונות.\n    </p>\n  </div>\n  <div style=\"background-color: #f1f1f1; padding: 10px; text-align: center; font-size: 12px; color: #999;\">\n    AI Weather Automation System | n8n\n  </div>\n</div>\n`;\n\nreturn [{\n  json: {\n    to: $('Load Config').first().json.settings.NOTIFICATION_EMAIL,\n    subject: \"עדכון מצב תריסים יומי - AI Weather\",\n    html: htmlBody,\n    isCloudy,\n    reason\n  }\n}];"
+        "jsCode": "// Prepare HTML email with blinds status report\nconst inputData = $input.first().json;\n\n// Debug: log what we received\nconst debugInfo = 'Input keys: ' + Object.keys(inputData).join(', ') + ' | isCloudy=' + inputData.isCloudy + ' | reason=' + inputData.reason;\n\nconst isCloudy = inputData.isCloudy;\nconst reason = inputData.reason || 'לא התקבל הסבר מהמערכת';\n\nconst statusColor = isCloudy ? \"#3498db\" : \"#e67e22\";\nconst statusText = isCloudy ? \"התריסים נשארים פתוחים\" : \"התריסים נסגרים כעת\";\nconst icon = isCloudy ? \"☁️\" : \"☀️\";\n\nconst htmlBody = `\n<div style=\"direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1);\">\n  <div style=\"background-color: ${statusColor}; color: white; padding: 20px; text-align: center;\">\n    <h1 style=\"margin: 0; font-size: 24px;\">${icon} ${statusText}</h1>\n  </div>\n  <div style=\"padding: 30px; line-height: 1.6; color: #333;\">\n    <p style=\"font-size: 18px; font-weight: bold; margin-bottom: 10px;\">ניתוח המערכת:</p>\n    <div style=\"background-color: #f9f9f9; padding: 15px; border-right: 5px solid ${statusColor}; border-radius: 4px; margin-bottom: 20px; font-style: italic;\">\n      ${reason}\n    </div>\n    <p style=\"font-size: 14px; color: #777;\">\n      ההחלטה התקבלה על ידי בינה מלאכותית בהתבסס על נתוני השירות המטאורולוגי ב-2 השעות האחרונות.\n    </p>\n    <p style=\"font-size: 11px; color: #aaa;\">Debug: ${debugInfo}</p>\n  </div>\n  <div style=\"background-color: #f1f1f1; padding: 10px; text-align: center; font-size: 12px; color: #999;\">\n    AI Weather Automation System | n8n\n  </div>\n</div>\n`;\n\nreturn [{\n  json: {\n    to: $('Load Config').first().json.settings.NOTIFICATION_EMAIL,\n    subject: \"עדכון מצב תריסים יומי - AI Weather\",\n    html: htmlBody,\n    isCloudy,\n    reason\n  }\n}];"
       },
       "id": "code-email-prep",
       "name": "Prepare Email",
@@ -291,8 +291,9 @@
         -96
       ],
       "retryOnFail": true,
-      "maxTries": 10,
-      "waitBetweenTries": 120000
+      "maxTries": 5,
+      "waitBetweenTries": 60000,
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -318,6 +319,19 @@
       "position": [
         112,
         0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// AI request failed after retries - default to safe mode (keep blinds open)\nconst now = new Date();\nconst month = now.getMonth() + 1;\nlet seasonMsg;\nif (month >= 5 && month <= 9) {\n  seasonMsg = 'בחודשי הקיץ (חודש ' + month + '), כברירת מחדל התריסים נסגרים.';\n  return [{ json: { isCloudy: false, reason: 'חלה תקלה בניתוח הנתונים על ידי הבינה המלאכותית (השירות לא זמין). ' + seasonMsg } }];\n} else {\n  seasonMsg = 'בחודשי החורף (חודש ' + month + '), כברירת מחדל התריסים נשארים פתוחים.';\n  return [{ json: { isCloudy: true, reason: 'חלה תקלה בניתוח הנתונים על ידי הבינה המלאכותית (השירות לא זמין). ' + seasonMsg } }];\n}"
+      },
+      "id": "code-ai-fail",
+      "name": "Default: AI Failed (Safe)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2208,
+        160
       ]
     }
   ],
@@ -498,10 +512,28 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Default: AI Failed (Safe)",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Is Sunny & Warm?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default: AI Failed (Safe)": {
       "main": [
         [
           {

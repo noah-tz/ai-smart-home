@@ -6,7 +6,12 @@ const config = JSON.parse(fs.readFileSync('/config/config.json', 'utf8'));
 const TUYA_ACCESS_ID = $env.TUYA_ACCESS_ID;
 const TUYA_ACCESS_SECRET = $env.TUYA_ACCESS_SECRET;
 const API_URL = 'https://openapi.tuyaeu.com';
-const token = $input.first().json.token;
+const inputJson = $input.first().json;
+const token = inputJson.token;
+
+// Preserve AI decision data for downstream email node
+const isCloudy = inputJson.isCloudy;
+const reason = inputJson.reason;
 
 const BLINDS = [
   config.blinds.rightDeviceId,
@@ -43,4 +48,4 @@ for (const deviceId of BLINDS) {
   results.push({ deviceId, success: response.success, result: response });
 }
 
-return [{ json: { blindsResults: results } }];
+return [{ json: { blindsResults: results, isCloudy, reason } }];
