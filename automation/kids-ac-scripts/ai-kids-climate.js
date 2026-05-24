@@ -3,6 +3,13 @@
 const config = $('Load Config').first().json;
 const weather = $input.first().json;
 
+// --- DEBUG MODE: return mock AI result ---
+if (config.debug && config.debug.mockAI) {
+  const mock = (config.debug.kids && config.debug.kids.mockResult) || { analysis: 'MOCK: no action', action_required: false, command: null };
+  return [{ json: mock }];
+}
+
+// --- PRODUCTION MODE ---
 const GEMINI_KEY = config.secrets.GEMINI_API_KEY;
 const DEVICE_ID = config.devices.AC_KIDS;
 

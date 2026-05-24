@@ -3,16 +3,16 @@ const config = $('Load Config').first().json;
 
 // --- DEBUG MODE: return mock result from config ---
 if (config.debug && config.debug.mockAI) {
-  const isCloudy = config.debug.mockBlindsResult !== false;
+  const mockResult = config.debug.blinds && config.debug.blinds.mockResult;
+  const isCloudy = mockResult !== false;
   const reason = isCloudy
-    ? '🧪 DEBUG MOCK: תריסים נשארים פתוחים (mockBlindsResult != false)'
-    : '🧪 DEBUG MOCK: תריסים נסגרים (mockBlindsResult: false)';
+    ? '🧪 MOCK: תריסים נשארים פתוחים (mockResult != false)'
+    : '🧪 MOCK: תריסים נסגרים (mockResult: false)';
   return [{ json: { isCloudy, reason } }];
 }
 
 // --- PRODUCTION: seasonal fallback ---
-const now = new Date();
-const month = now.getMonth() + 1;
+const month = new Date().getMonth() + 1;
 const isSummer = config.settings.SUMMER_MONTHS.includes(month);
 
 if (isSummer) {

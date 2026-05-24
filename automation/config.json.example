@@ -31,5 +31,22 @@
     "NOTIFICATION_EMAIL": "your@email.com",
     "SUMMER_MONTHS": [5, 6, 7, 8, 9, 10],
     "AC_TEMP_THRESHOLD": 20
+  },
+  "debug": {
+    "mockAI": false,
+    "blinds": { "mockResult": false },
+    "kids": {
+      "mockResult": {
+        "action_required": false,
+        "analysis": "Mock: no action needed",
+        "command": null
+      }
+    },
+    "shabbat": {
+      "mockResult": {
+        "reasoning_summary": "Mock: no actions planned",
+        "schedule": []
+      }
+    }
   }
 }

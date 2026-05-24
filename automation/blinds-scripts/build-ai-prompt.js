@@ -1,7 +1,7 @@
 // Build the AI prompt from weather data
 const config = $('Load Config').first().json;
 
-// --- DEBUG MODE: return empty payload so Gemini fails fast → goes to AI Failed node ---
+// --- DEBUG MODE: return empty payload so Gemini fails → goes to AI Failed node ---
 if (config.debug && config.debug.mockAI) {
   return [{ json: { _mock: true } }];
 }

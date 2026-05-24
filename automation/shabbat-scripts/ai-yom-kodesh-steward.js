@@ -5,6 +5,13 @@
 //   2. If transition Kodesh→Chol today: turn ON mini-bar at havdalah
 //   Does NOT handle: erev actions, candle lighting shutdowns
 const config = $('Load Config').first().json;
+
+// --- DEBUG MODE: return mock result ---
+if (config.debug && config.debug.mockAI) {
+  const mock = (config.debug.shabbat && config.debug.shabbat.mockResult) || { reasoning_summary: 'MOCK: ללא פעולות', schedule: [] };
+  return [{ json: mock }];
+}
+
 const kodeshData = $('Check Yom Kodesh').first().json;
 const weatherData = $('Get Weather Forecast').first().json;
 

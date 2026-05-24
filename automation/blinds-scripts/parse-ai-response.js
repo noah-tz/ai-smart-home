@@ -1,12 +1,13 @@
-// Parse Gemini AI response (or return mock if debug.mockAI is enabled)
+// Parse Gemini AI response
 const config = $('Load Config').first().json;
 
-// --- DEBUG MODE: skip AI parsing, return mock result ---
+// --- DEBUG MODE: safety net (normally handled by AI Failed node) ---
 if (config.debug && config.debug.mockAI) {
-  const isCloudy = config.debug.mockBlindsResult !== false; // false = close blinds, true = keep open
+  const mockResult = config.debug.blinds && config.debug.blinds.mockResult;
+  const isCloudy = mockResult !== false;
   const reason = isCloudy
-    ? '🧪 DEBUG MOCK: תריסים נשארים פתוחים (mockBlindsResult: true/undefined)'
-    : '🧪 DEBUG MOCK: תריסים נסגרים (mockBlindsResult: false)';
+    ? '🧪 MOCK: תריסים נשארים פתוחים'
+    : '🧪 MOCK: תריסים נסגרים';
   return [{ json: { isCloudy, reason } }];
 }
 

@@ -5,6 +5,13 @@
 //   2. Plan evening/night actions (AC for dinner, bedrooms, etc.)
 //   Does NOT handle: havdalah, daytime Shabbat actions
 const config = $('Load Config').first().json;
+
+// --- DEBUG MODE: return mock result ---
+if (config.debug && config.debug.mockAI) {
+  const mock = (config.debug.shabbat && config.debug.shabbat.mockResult) || { reasoning_summary: 'MOCK: ללא פעולות', schedule: [] };
+  return [{ json: mock }];
+}
+
 const shabbatData = $('Check Shabbat Entry').first().json;
 const weatherData = $('Get Weather Forecast').first().json;
 
