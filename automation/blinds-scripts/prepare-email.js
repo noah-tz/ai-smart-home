@@ -1,7 +1,4 @@
 // Prepare HTML email with blinds status report
-const fs = require('fs');
-
-const config = JSON.parse(fs.readFileSync('/config/config.json', 'utf8'));
 const inputData = $input.first().json;
 const isCloudy = inputData.isCloudy;
 const reason = inputData.reason;
@@ -32,7 +29,7 @@ const htmlBody = `
 
 return [{
   json: {
-    to: config.notifications.recipientEmail,
+    to: $('Load Config').first().json.settings.NOTIFICATION_EMAIL,
     subject: 'עדכון מצב תריסים יומי - AI Weather',
     html: htmlBody,
     isCloudy,

@@ -15,7 +15,8 @@ services:
       - N8N_PROTOCOL=https
       - WEBHOOK_URL=https://${N8N_HOST}/
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
-      - N8N_RESTRICT_ENVIRONMENT_VARIABLES_ACCESS=true
+      - N8N_RESTRICT_ENVIRONMENT_VARIABLES_ACCESS=false
+      - NODE_FUNCTION_ALLOW_EXTERNAL=*
       - NODE_FUNCTION_ALLOW_BUILTIN=crypto,fs,path
       - N8N_RUNNERS_ENABLED=false
     ports:
@@ -45,9 +46,10 @@ services:
     container_name: gmail-relay
     restart: always
     volumes:
-      - ./gmail-relay/config:/config:ro
+      - ./gmail-relay/config:/config
     networks:
       - automation-internal
+      - web-proxy
     security_opt:
       - no-new-privileges:true
     cap_drop:

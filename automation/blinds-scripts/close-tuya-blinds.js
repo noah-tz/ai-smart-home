@@ -1,10 +1,9 @@
 // Close both Tuya blinds using signed API requests
 const crypto = require('crypto');
-const fs = require('fs');
 
-const config = JSON.parse(fs.readFileSync('/config/config.json', 'utf8'));
-const TUYA_ACCESS_ID = $env.TUYA_ACCESS_ID;
-const TUYA_ACCESS_SECRET = $env.TUYA_ACCESS_SECRET;
+const config = $('Load Config').first().json;
+const TUYA_ACCESS_ID = config.secrets.TUYA_ACCESS_ID;
+const TUYA_ACCESS_SECRET = config.secrets.TUYA_ACCESS_SECRET;
 const API_URL = 'https://openapi.tuyaeu.com';
 const inputJson = $input.first().json;
 const token = inputJson.token;
@@ -14,8 +13,8 @@ const isCloudy = inputJson.isCloudy;
 const reason = inputJson.reason;
 
 const BLINDS = [
-  config.blinds.rightDeviceId,
-  config.blinds.leftDeviceId
+  config.secrets.BLINDS_RIGHT,
+  config.secrets.BLINDS_LEFT
 ];
 
 const results = [];

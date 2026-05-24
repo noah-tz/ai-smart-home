@@ -1,8 +1,9 @@
 // Get Tuya access token using HMAC-SHA256 signature
 const crypto = require('crypto');
 
-const TUYA_ACCESS_ID = $env.TUYA_ACCESS_ID;
-const TUYA_ACCESS_SECRET = $env.TUYA_ACCESS_SECRET;
+const config = $('Load Config').first().json;
+const TUYA_ACCESS_ID = config.secrets.TUYA_ACCESS_ID;
+const TUYA_ACCESS_SECRET = config.secrets.TUYA_ACCESS_SECRET;
 const API_URL = 'https://openapi.tuyaeu.com';
 
 // Preserve AI decision from input for downstream

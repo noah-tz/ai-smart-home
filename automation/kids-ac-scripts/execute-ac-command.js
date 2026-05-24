@@ -4,8 +4,11 @@ const fs = require('fs');
 const config = JSON.parse(fs.readFileSync('/home/node/.n8n/config.json', 'utf8'));
 const aiResult = $input.first().json;
 
+// Get weather data from earlier node for passthrough
+const weatherData = $('Get Current Weather').first().json;
+
 if (!aiResult.action_required || !aiResult.command) {
-  return [{ json: { executed: false, reason: aiResult.analysis } }];
+  return [{ json: { executed: false, action: 'NO CHANGE', reason: aiResult.analysis, outdoorTemp: weatherData.currentTemp } }];
 }
 
 const TUYA_ACCESS_ID = config.secrets.TUYA_ACCESS_ID;
@@ -54,8 +57,9 @@ const result = await this.helpers.httpRequest({
 return [{
   json: {
     executed: true,
-    action: cmd.action,
+    action: cmd.action || (cmd.commands[0].value ? 'ON' : 'OFF'),
     success: result.success,
-    justification: cmd.justification
+    reason: (cmd.justification || '').substring(0, 200),
+    outdoorTemp: weatherData.currentTemp
   }
 }];

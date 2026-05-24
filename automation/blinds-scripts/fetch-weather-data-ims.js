@@ -1,23 +1,26 @@
 // Fetch weather data from nearest IMS station with radiation sensor
-const fs = require('fs');
-
-const config = JSON.parse(fs.readFileSync('/config/config.json', 'utf8'));
 const candidates = $input.first().json.candidates;
-const IMS_TOKEN = $env.IMS_API_TOKEN;
+const config = $('Load Config').first().json;
+const IMS_TOKEN = config.secrets.IMS_API_TOKEN;
 
 const now = new Date();
 const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
 
-// Format dates for IMS API
+// Format dates for IMS API (auto-detect Israel timezone offset)
 function formatDate(d) {
-  const offset = config.weather.timezoneOffsetHours;
-  const local = new Date(d.getTime() + offset * 60 * 60 * 1000);
-  const iso = local.toISOString();
-  const year = iso.slice(0, 4);
-  const month = iso.slice(5, 7);
-  const day = iso.slice(8, 10);
-  const time = iso.slice(11, 16);
-  return year + '/' + month + '/' + day + ' ' + time;
+  // Use Intl to get the actual current offset for Asia/Jerusalem
+  const formatter = new Intl.DateTimeFormat('en-IL', {
+    timeZone: 'Asia/Jerusalem',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  });
+  const parts = formatter.formatToParts(d);
+  const year = parts.find(p => p.type === 'year').value;
+  const month = parts.find(p => p.type === 'month').value;
+  const day = parts.find(p => p.type === 'day').value;
+  const hour = parts.find(p => p.type === 'hour').value;
+  const minute = parts.find(p => p.type === 'minute').value;
+  return year + '/' + month + '/' + day + ' ' + hour + ':' + minute;
 }
 
 const fromStr = encodeURIComponent(formatDate(twoHoursAgo));
