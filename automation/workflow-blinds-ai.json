@@ -261,7 +261,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Build the AI prompt from weather data\nconst config = $('Load Config').first().json;\n\n// --- DEBUG MODE: return empty payload so Gemini fails → goes to AI Failed node ---\nif (config.debug && config.debug.mockAI) {\n  return [{ json: { _mock: true } }];\n}\n\n// --- PRODUCTION MODE ---\nconst weatherData = $input.first().json;\n\nconst MIN_RAD = config.weather.minRadiationForSunnyWm2;\nconst CLOUDY_PCT = config.weather.cloudyThresholdPercentage * 100;\nconst COLD_TEMP = config.weather.coldThresholdCelsius;\n\nconst prompt = \"Analyze the following IMS weather data from the last 2 hours (10-minute intervals): \" + JSON.stringify(weatherData) +\n  \".\\n\\nYour task is to decide if the blinds should remain OPEN (isCloudy: true) or CLOSE (isCloudy: false).\" +\n  \"\\n\\nData Context:\" +\n  \"\\n- 'globalRadiation' is measured in W/m^2. Values below \" + MIN_RAD + \" W/m^2 during daytime indicate cloudy conditions.\" +\n  \"\\n- 'rain' > 0 indicates active rain.\" +\n  \"\\n\\nRules:\" +\n  \"\\n1. For each interval, determine if it is 'cloudy/rainy' (globalRadiation < \" + MIN_RAD + \" OR rain > 0) or 'sunny'.\" +\n  \"\\n2. If more than \" + CLOUDY_PCT + \"% of the intervals were 'cloudy/rainy', return isCloudy: true.\" +\n  \"\\n3. If it is currently sunny but it's a COLD day (temperature below \" + COLD_TEMP + \"\\u00b0C), return isCloudy: true.\" +\n  \"\\n4. Only return isCloudy: false if it is sunny AND the temperature is comfortably warm (\" + COLD_TEMP + \"\\u00b0C or above).\" +\n  \"\\n5. Provide a detailed and clear reason for your decision in Hebrew.\" +\n  \"\\n\\nReturn JSON: {\\\"isCloudy\\\": boolean, \\\"reason\\\": string}\";\n\nconst payload = {\n  contents: [{ role: \"user\", parts: [{ text: prompt }] }],\n  generationConfig: {\n    responseMimeType: \"application/json\",\n    responseSchema: {\n      type: \"object\",\n      properties: {\n        isCloudy: { type: \"boolean\" },\n        reason: { type: \"string\" }\n      },\n      required: [\"isCloudy\", \"reason\"]\n    }\n  }\n};\n\nreturn [{ json: payload }];\n"
+        "jsCode": "// Build the AI prompt from weather data\nconst config = $('Load Config').first().json;\n\n// --- DEBUG MODE: return mock in Gemini response format ---\n// When Gemini node is disabled (pass-through), Parse AI Response gets this directly\nif (config.debug && config.debug.mockAI) {\n  const mockResult = config.debug.blinds && config.debug.blinds.mockResult;\n  const isCloudy = mockResult !== false;\n  const reason = isCloudy\n    ? '🧪 MOCK: תריסים נשארים פתוחים'\n    : '🧪 MOCK: תריסים נסגרים';\n  return [{ json: {\n    candidates: [{ content: { parts: [{ text: JSON.stringify({ isCloudy, reason }) }] } }]\n  }}];\n}\n\n// --- PRODUCTION MODE ---\nconst weatherData = $input.first().json;\n\nconst MIN_RAD = config.weather.minRadiationForSunnyWm2;\nconst CLOUDY_PCT = config.weather.cloudyThresholdPercentage * 100;\nconst COLD_TEMP = config.weather.coldThresholdCelsius;\n\nconst prompt = \"Analyze the following IMS weather data from the last 2 hours (10-minute intervals): \" + JSON.stringify(weatherData) +\n  \".\\n\\nYour task is to decide if the blinds should remain OPEN (isCloudy: true) or CLOSE (isCloudy: false).\" +\n  \"\\n\\nData Context:\" +\n  \"\\n- 'globalRadiation' is measured in W/m^2. Values below \" + MIN_RAD + \" W/m^2 during daytime indicate cloudy conditions.\" +\n  \"\\n- 'rain' > 0 indicates active rain.\" +\n  \"\\n\\nRules:\" +\n  \"\\n1. For each interval, determine if it is 'cloudy/rainy' (globalRadiation < \" + MIN_RAD + \" OR rain > 0) or 'sunny'.\" +\n  \"\\n2. If more than \" + CLOUDY_PCT + \"% of the intervals were 'cloudy/rainy', return isCloudy: true.\" +\n  \"\\n3. If it is currently sunny but it's a COLD day (temperature below \" + COLD_TEMP + \"\\u00b0C), return isCloudy: true.\" +\n  \"\\n4. Only return isCloudy: false if it is sunny AND the temperature is comfortably warm (\" + COLD_TEMP + \"\\u00b0C or above).\" +\n  \"\\n5. Provide a detailed and clear reason for your decision in Hebrew.\" +\n  \"\\n\\nReturn JSON: {\\\"isCloudy\\\": boolean, \\\"reason\\\": string}\";\n\nconst payload = {\n  contents: [{ role: \"user\", parts: [{ text: prompt }] }],\n  generationConfig: {\n    responseMimeType: \"application/json\",\n    responseSchema: {\n      type: \"object\",\n      properties: {\n        isCloudy: { type: \"boolean\" },\n        reason: { type: \"string\" }\n      },\n      required: [\"isCloudy\", \"reason\"]\n    }\n  }\n};\n\nreturn [{ json: payload }];\n"
       },
       "id": "code-build-prompt",
       "name": "Build AI Prompt",
@@ -275,7 +275,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={{$('Load Config').first().json.secrets.GEMINI_API_KEY}}",
+        "url": "={{ $('Load Config').first().json.debug && $('Load Config').first().json.debug.mockAI ? 'http://127.0.0.1:1/mock-disabled' : 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + $('Load Config').first().json.secrets.GEMINI_API_KEY }}",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json) }}",
@@ -289,9 +289,7 @@
         1984,
         -96
       ],
-      "retryOnFail": true,
-      "maxTries": 5,
-      "waitBetweenTries": 60000,
+      "retryOnFail": false,
       "onError": "continueErrorOutput"
     },
     {

@@ -1,9 +1,17 @@
 // Build the AI prompt from weather data
 const config = $('Load Config').first().json;
 
-// --- DEBUG MODE: return empty payload so Gemini fails → goes to AI Failed node ---
+// --- DEBUG MODE: return mock in Gemini response format ---
+// When Gemini node is disabled (pass-through), Parse AI Response gets this directly
 if (config.debug && config.debug.mockAI) {
-  return [{ json: { _mock: true } }];
+  const mockResult = config.debug.blinds && config.debug.blinds.mockResult;
+  const isCloudy = mockResult !== false;
+  const reason = isCloudy
+    ? '🧪 MOCK: תריסים נשארים פתוחים'
+    : '🧪 MOCK: תריסים נסגרים';
+  return [{ json: {
+    candidates: [{ content: { parts: [{ text: JSON.stringify({ isCloudy, reason }) }] } }]
+  }}];
 }
 
 // --- PRODUCTION MODE ---
