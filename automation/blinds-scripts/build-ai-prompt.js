@@ -1,7 +1,12 @@
 // Build the AI prompt from weather data
-const fs = require('fs');
+const config = $('Load Config').first().json;
 
-const config = JSON.parse(fs.readFileSync('/config/config.json', 'utf8'));
+// --- DEBUG MODE: return empty payload so Gemini fails fast → goes to AI Failed node ---
+if (config.debug && config.debug.mockAI) {
+  return [{ json: { _mock: true } }];
+}
+
+// --- PRODUCTION MODE ---
 const weatherData = $input.first().json;
 
 const MIN_RAD = config.weather.minRadiationForSunnyWm2;

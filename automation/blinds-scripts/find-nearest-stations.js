@@ -1,7 +1,5 @@
 // Find nearest IMS stations with radiation sensor capability
-const fs = require('fs');
-
-const config = JSON.parse(fs.readFileSync('/config/config.json', 'utf8'));
+const config = $('Load Config').first().json;
 const items = $input.all();
 const stations = items.map(item => item.json);
 

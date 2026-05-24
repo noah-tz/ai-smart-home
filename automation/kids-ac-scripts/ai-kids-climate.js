@@ -1,7 +1,6 @@
 // AI Kids' Sleep & Climate Guardian
 // Decides whether to turn kids AC ON or OFF based on temperature and season
-const fs = require('fs');
-const config = JSON.parse(fs.readFileSync('/home/node/.n8n/config.json', 'utf8'));
+const config = $('Load Config').first().json;
 const weather = $input.first().json;
 
 const GEMINI_KEY = config.secrets.GEMINI_API_KEY;

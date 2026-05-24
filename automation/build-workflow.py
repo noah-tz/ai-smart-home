@@ -32,6 +32,7 @@ WORKFLOWS = {
             'Close Tuya Blinds': 'close-tuya-blinds.js',
             'Prepare Email': 'prepare-email.js',
             'Default: Keep Open (Safe)': 'default-keep-open-safe.js',
+            'Default: AI Failed (Safe)': 'default-ai-failed.js',
             'Build AI Prompt': 'build-ai-prompt.js',
             'Parse AI Response': 'parse-ai-response.js',
         }
@@ -44,6 +45,32 @@ WORKFLOWS = {
             'AI Kids Climate Guardian': 'ai-kids-climate.js',
             'Execute AC Command': 'execute-ac-command.js',
             'Prepare Morning Email': 'prepare-morning-email.js',
+        }
+    },
+    'shabbat': {
+        'json_file': os.path.join(BASE_DIR, 'workflow-shabbat-steward.json'),
+        'scripts_dir': os.path.join(BASE_DIR, 'shabbat-scripts'),
+        'node_map': {
+            'Load Config': 'load-config.js',
+            'Check Shabbat Entry': 'check-shabbat-entry.js',
+            'Get Weather Forecast': 'get-weather-forecast.js',
+            'AI Shabbat Steward': 'ai-shabbat-steward.js',
+            'Split Schedule': 'split-schedule.js',
+            'Calc Wait Time': 'calc-wait-seconds.js',
+            'Execute Tuya Command': 'execute-single-action.js',
+            'Prepare Erev Email': 'send-erev-summary-email.js',
+        }
+    },
+    'shabbat-day': {
+        'json_file': os.path.join(BASE_DIR, 'workflow-shabbat-day.json'),
+        'scripts_dir': os.path.join(BASE_DIR, 'shabbat-scripts'),
+        'node_map': {
+            'Load Config': 'load-config.js',
+            'Check Yom Kodesh': 'check-yom-kodesh.js',
+            'Get Weather Forecast': 'get-weather-forecast.js',
+            'AI Yom Kodesh Steward': 'ai-yom-kodesh-steward.js',
+            'Execute Shabbat Actions': 'execute-schedule.js',
+            'Prepare Kodesh Email': 'send-kodesh-summary-email.js',
         }
     },
 }

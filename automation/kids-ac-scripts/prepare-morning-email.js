@@ -1,6 +1,5 @@
 // Morning summary email for kids AC
-const fs = require('fs');
-const config = JSON.parse(fs.readFileSync('/home/node/.n8n/config.json', 'utf8'));
+const config = $('Load Config').first().json;
 const result = $input.first().json;
 
 const htmlBody = '<div style="direction:rtl;font-family:Segoe UI,sans-serif;max-width:500px;margin:auto;border:1px solid #eee;border-radius:10px;overflow:hidden">' +

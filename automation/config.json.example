@@ -1,12 +1,20 @@
 {
+  "location": {
+    "latitude": 31.0000,
+    "longitude": 34.0000
+  },
+  "weather": {
+    "cloudyThresholdPercentage": 0.7,
+    "coldThresholdCelsius": 20,
+    "minRadiationForSunnyWm2": 400,
+    "stationSearchCount": 30
+  },
   "secrets": {
     "TUYA_ACCESS_ID": "YOUR_TUYA_ACCESS_ID",
     "TUYA_ACCESS_SECRET": "YOUR_TUYA_ACCESS_SECRET",
     "IMS_API_TOKEN": "YOUR_IMS_API_TOKEN",
     "GEMINI_API_KEY": "YOUR_GEMINI_API_KEY",
-    "TOMORROW_IO_KEY": "YOUR_TOMORROW_IO_KEY",
-    "BLINDS_LEFT": "YOUR_DEVICE_ID",
-    "BLINDS_RIGHT": "YOUR_DEVICE_ID"
+    "TOMORROW_IO_KEY": "YOUR_TOMORROW_IO_KEY"
   },
   "devices": {
     "SHUTTER_LEFT": "YOUR_DEVICE_ID",
@@ -20,11 +28,6 @@
     "MINI_BAR": "YOUR_DEVICE_ID"
   },
   "settings": {
-    "LATITUDE": 31.0000,
-    "LONGITUDE": 34.0000,
-    "COLD_THRESHOLD_CELSIUS": 20,
-    "CLOUDY_THRESHOLD_PERCENT": 70,
-    "MIN_RADIATION_WM2": 400,
     "NOTIFICATION_EMAIL": "your@email.com",
     "SUMMER_MONTHS": [5, 6, 7, 8, 9, 10],
     "AC_TEMP_THRESHOLD": 20

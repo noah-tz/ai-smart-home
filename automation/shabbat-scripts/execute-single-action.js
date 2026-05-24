@@ -1,7 +1,6 @@
 // Execute a single Tuya command for the current scheduled action
 const crypto = require('crypto');
-const fs = require('fs');
-const config = JSON.parse(fs.readFileSync('/home/node/.n8n/config.json', 'utf8'));
+const config = $('Load Config').first().json;
 
 const action = $input.first().json;
 

@@ -1,6 +1,5 @@
 // Send Yom Kodesh (Shabbat Day) summary email
-const fs = require('fs');
-const config = JSON.parse(fs.readFileSync('/home/node/.n8n/config.json', 'utf8'));
+const config = $('Load Config').first().json;
 const kodeshData = $('Check Yom Kodesh').first().json;
 const aiResult = $('AI Yom Kodesh Steward').first().json;
 

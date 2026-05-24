@@ -1,6 +1,5 @@
 // Send beautiful Erev Shabbat/Chag summary email
-const fs = require('fs');
-const config = JSON.parse(fs.readFileSync('/home/node/.n8n/config.json', 'utf8'));
+const config = $('Load Config').first().json;
 const shabbatData = $('Check Shabbat Entry').first().json;
 const aiResult = $('AI Shabbat Steward').first().json;
 

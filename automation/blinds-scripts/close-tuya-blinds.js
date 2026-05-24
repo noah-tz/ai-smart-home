@@ -13,8 +13,8 @@ const isCloudy = inputJson.isCloudy;
 const reason = inputJson.reason;
 
 const BLINDS = [
-  config.secrets.BLINDS_RIGHT,
-  config.secrets.BLINDS_LEFT
+  config.devices.SHUTTER_RIGHT,
+  config.devices.SHUTTER_LEFT
 ];
 
 const results = [];

@@ -1,9 +1,8 @@
 // Get current temperature and 4-hour trend from Tomorrow.io
-const fs = require('fs');
-const config = JSON.parse(fs.readFileSync('/home/node/.n8n/config.json', 'utf8'));
+const config = $('Load Config').first().json;
 
-const LAT = config.settings.LATITUDE;
-const LON = config.settings.LONGITUDE;
+const LAT = config.location.latitude;
+const LON = config.location.longitude;
 const API_KEY = config.secrets.TOMORROW_IO_KEY;
 
 const url = `https://api.tomorrow.io/v4/weather/forecast?location=${LAT},${LON}&timesteps=1h&apikey=${API_KEY}`;

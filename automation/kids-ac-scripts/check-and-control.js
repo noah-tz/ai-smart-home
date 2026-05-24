@@ -2,17 +2,16 @@
 // Runs every hour 21:00-07:00
 // Summer (months 5-10): AC is on COOL - turn OFF when outdoor temp drops below 17°C
 // Winter (months 11-4): AC is on HEAT - turn ON when outdoor temp drops below 10°C, OFF when above 12°C
-const fs = require('fs');
 const crypto = require('crypto');
-const config = JSON.parse(fs.readFileSync('/home/node/.n8n/config.json', 'utf8'));
+const config = $('Load Config').first().json;
 
 const DEVICE_ID = config.devices.AC_KIDS;
 const TUYA_ACCESS_ID = config.secrets.TUYA_ACCESS_ID;
 const TUYA_ACCESS_SECRET = config.secrets.TUYA_ACCESS_SECRET;
 const API_URL = 'https://openapi.tuyaeu.com';
 const TOMORROW_KEY = config.secrets.TOMORROW_IO_KEY;
-const LAT = config.settings.LATITUDE;
-const LON = config.settings.LONGITUDE;
+const LAT = config.location.latitude;
+const LON = config.location.longitude;
 
 const now = new Date();
 const hour = now.getHours();

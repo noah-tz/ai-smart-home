@@ -1,7 +1,6 @@
 // Execute AC command if action is required
 const crypto = require('crypto');
-const fs = require('fs');
-const config = JSON.parse(fs.readFileSync('/home/node/.n8n/config.json', 'utf8'));
+const config = $('Load Config').first().json;
 const aiResult = $input.first().json;
 
 // Get weather data from earlier node for passthrough

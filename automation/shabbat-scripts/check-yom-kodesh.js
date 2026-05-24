@@ -1,8 +1,8 @@
 // Check if today is Yom Kodesh (Shabbat or Chag)
 // Also check if there's a transition to Chol at sunset today
 const config = $('Load Config').first().json;
-const LAT = config.settings.LATITUDE;
-const LON = config.settings.LONGITUDE;
+const LAT = config.location.latitude;
+const LON = config.location.longitude;
 
 const today = new Date();
 const dateStr = today.toISOString().slice(0, 10);

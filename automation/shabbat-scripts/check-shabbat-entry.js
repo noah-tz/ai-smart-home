@@ -1,8 +1,8 @@
 // Check if tonight there's a Kodesh entry (candle lighting)
 // Also determines if this is a Chol→Kodesh transition or Kodesh→Kodesh (multi-day)
 const config = $('Load Config').first().json;
-const LAT = config.settings.LATITUDE;
-const LON = config.settings.LONGITUDE;
+const LAT = config.location.latitude;
+const LON = config.location.longitude;
 
 const today = new Date();
 const dateStr = today.toISOString().slice(0, 10);
