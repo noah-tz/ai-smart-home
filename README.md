@@ -82,20 +82,6 @@ Manages daytime comfort during Shabbat/Chag. Detects Kodesh→Chol transition fo
 
 ---
 
-### 4. 🌙 AI Kids Sleep Climate Guardian
-
-Maintains optimal sleeping temperature for children's room.
-
-| Season | Condition | Action |
-|--------|-----------|--------|
-| Summer | Outdoor ≥ 17°C | AC ON (cool) |
-| Summer | Outdoor < 17°C | AC OFF |
-| Winter | Outdoor < 10°C | AC ON (heat) |
-| Winter | Outdoor > 12°C | AC OFF |
-| Winter | 10-12°C | Maintain (hysteresis) |
-
----
-
 ## Multi-Day Holiday Handling
 
 The system correctly handles complex scenarios like Rosh Hashana + Shabbat (3 consecutive days):
@@ -107,6 +93,20 @@ The system correctly handles complex scenarios like Rosh Hashana + Shabbat (3 co
 | Thu | 15:00 | Erev | Kodesh→Kodesh | Evening comfort only (no shutdowns) |
 | Fri | 15:00 | Erev | Kodesh→Kodesh | Evening comfort only (no shutdowns) |
 | Sat | 00:00 | Day | Kodesh→Chol ✅ | Daytime + Mini-bar ON at havdalah |
+
+---
+
+### 4. 🌙 AI Kids Sleep Climate Guardian
+
+Maintains optimal sleeping temperature for children's room.
+
+| Season | Condition | Action |
+|--------|-----------|--------|
+| Summer | Outdoor ≥ 17°C | AC ON (cool) |
+| Summer | Outdoor < 17°C | AC OFF |
+| Winter | Outdoor < 10°C | AC ON (heat) |
+| Winter | Outdoor > 12°C | AC OFF |
+| Winter | 10-12°C | Maintain (hysteresis) |
 
 ---
 
