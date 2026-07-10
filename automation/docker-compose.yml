@@ -39,6 +39,7 @@ services:
     read_only: false
     tmpfs:
       - /tmp
+      - /home/node/.cache
 
   gmail-relay:
     build: ./gmail-relay

@@ -8,7 +8,7 @@
   "nodes": [
     {
       "parameters": {
-        "url": "=https://www.hebcal.com/zmanim?cfg=json&latitude={{$json.location.latitude}}&longitude={{$json.location.longitude}}&date={{$now.format('yyyy-MM-dd')}}",
+        "url": "=https://www.hebcal.com/zmanim?cfg=json&latitude={{$json.location.latitude}}&longitude={{$json.location.longitude}}&tzid=Asia/Jerusalem&date={{$now.format('yyyy-MM-dd')}}",
         "options": {}
       },
       "id": "http-hebcal",

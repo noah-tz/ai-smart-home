@@ -67,7 +67,7 @@ const month = today.getMonth() + 1;
 const isSummerMonth = config.settings.SUMMER_MONTHS.includes(month);
 
 // Get sunset time for today (from Hebcal zmanim)
-const zmanimUrl = `https://www.hebcal.com/zmanim?cfg=json&latitude=${LAT}&longitude=${LON}&date=${dateStr}`;
+const zmanimUrl = `https://www.hebcal.com/zmanim?cfg=json&latitude=${LAT}&longitude=${LON}&tzid=Asia/Jerusalem&date=${dateStr}`;
 const zmanimResp = await this.helpers.httpRequest({
   method: 'GET',
   url: zmanimUrl,
