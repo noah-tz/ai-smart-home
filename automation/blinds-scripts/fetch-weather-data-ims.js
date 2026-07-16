@@ -6,13 +6,13 @@ const IMS_TOKEN = config.secrets.IMS_API_TOKEN;
 const now = new Date();
 const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
 
-// Format dates for IMS API (auto-detect Israel timezone offset)
+// Format dates for IMS API in ISO format (YYYY-MM-DDTHH:MM:SS)
+// Using ISO avoids URL encoding issues with slashes and spaces
 function formatDate(d) {
-  // Use Intl to get the actual current offset for Asia/Jerusalem
   const formatter = new Intl.DateTimeFormat('en-IL', {
     timeZone: 'Asia/Jerusalem',
     year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: false
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
   });
   const parts = formatter.formatToParts(d);
   const year = parts.find(p => p.type === 'year').value;
@@ -20,11 +20,13 @@ function formatDate(d) {
   const day = parts.find(p => p.type === 'day').value;
   const hour = parts.find(p => p.type === 'hour').value;
   const minute = parts.find(p => p.type === 'minute').value;
-  return year + '/' + month + '/' + day + ' ' + hour + ':' + minute;
+  const second = parts.find(p => p.type === 'second').value;
+  return year + '-' + month + '-' + day + 'T' + hour + ':' + minute + ':' + second;
 }
 
-const fromStr = encodeURIComponent(formatDate(twoHoursAgo));
-const toStr = encodeURIComponent(formatDate(now));
+// Encode colons in time values - IMS API requires %3A for colons in query params
+const fromStr = formatDate(twoHoursAgo).replace(/:/g, '%3A');
+const toStr = formatDate(now).replace(/:/g, '%3A');
 
 for (const candidate of candidates) {
   try {
@@ -33,7 +35,10 @@ for (const candidate of candidates) {
     const response = await this.helpers.httpRequest({
       method: 'GET',
       url: url,
-      headers: { 'Authorization': 'ApiToken ' + IMS_TOKEN },
+      headers: {
+        'Authorization': 'ApiToken ' + IMS_TOKEN,
+        'Accept': 'application/json'
+      },
       json: true
     });
 
